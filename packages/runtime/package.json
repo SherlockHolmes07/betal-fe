@@ -1,0 +1,31 @@
+{
+  "name": "betal-fe",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "dist/betal-fe.js",
+  "files": [
+    "dist/betal-fe.js"
+  ],
+  "scripts": {
+    "build": "rollup -c",
+    "prepack": "npm run build",
+    "lint": "eslint src",
+    "lint:fix": "eslint src --fix",
+    "test": "vitest",
+    "test:run": "vitest --run"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "@eslint/js": "^9.38.0",
+    "eslint": "^9.38.0",
+    "globals": "^16.4.0",
+    "jsdom": "^27.0.1",
+    "rollup": "^4.52.5",
+    "rollup-plugin-cleanup": "^3.2.1",
+    "rollup-plugin-filesize": "^10.0.0",
+    "vitest": "^3.2.4"
+  }
+}

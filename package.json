@@ -1,0 +1,16 @@
+{
+  "name": "betal-fe-project",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "serve:examples": "npx http-server . -o ./examples/"
+  },
+  "workspaces": [
+    "packages/runtime"
+  ],
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "A project to learn how to write a frontend framework from scratch",
+  "private": true
+}
