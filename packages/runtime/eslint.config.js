@@ -14,7 +14,9 @@ export default [
             }
         },
         rules: {
-            // You can add custom rules here if needed
+            'no-undef': 'error',
+            'no-duplicate-imports': 'error',
+            'no-unused-vars': 'warn'
         }
     }
 ];
