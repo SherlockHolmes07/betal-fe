@@ -1,23 +1,28 @@
 import { DOM_TYPES } from "./h.js";
-import { setAttributes } from './attributes.js'
-import { addEventListeners } from './events.js'
+import { setAttributes } from "./attributes.js";
+import { addEventListeners } from "./events.js";
+import { extractPropsAndEvents } from './utils/props.js';
 
-export function mountDOM(vDom, parentElement, index) {
+export function mountDOM(vDom, parentElement, index, hostComponent = null) {
   switch (vDom.type) {
     case DOM_TYPES.TEXT: {
       createTextNode(vDom, parentElement, index);
       break;
     }
     case DOM_TYPES.ELEMENT: {
-      createElementNode(vDom, parentElement, index);
+      createElementNode(vDom, parentElement, index, hostComponent);
+      break;
+    }
+    case DOM_TYPES.COMPONENT: {
+      createComponentNode(vDom, parentElement, index, hostComponent);
       break;
     }
     case DOM_TYPES.FRAGMENT: {
-      createFragmentNode(vDom, parentElement, index);
+      createFragmentNode(vDom, parentElement, index, hostComponent);
       break;
     }
     default: {
-      throw new Error(`Can't mount DOM of type: ${vDom.type}`)
+      throw new Error(`Can't mount DOM of type: ${vDom.type}`);
     }
   }
 }
@@ -29,27 +34,29 @@ function createTextNode(vDom, parentElement, index) {
   insert(textNode, parentElement, index);
 }
 
-function createFragmentNode(vDom, parentElement, index) {
+function createFragmentNode(vDom, parentElement, index, hostComponent) {
   const { children } = vDom;
   vDom.el = parentElement;
 
-  children.forEach((child) => mountDOM(child, parentElement, index ? index + 1 : null));
+  children.forEach((child) =>
+    mountDOM(child, parentElement, index ? index + 1 : null, hostComponent)
+  );
 }
 
-function createElementNode(vDom, parentElement, index) {
-  const { tag, props, children } = vDom;
+function createElementNode(vDom, parentElement, index, hostComponent) {
+  const { tag, children } = vDom;
 
   const element = document.createElement(tag);
-  addProps(element, props, vDom);
+  addProps(element, vDom, hostComponent);
   vDom.el = element;
 
-  children.forEach((child) => mountDOM(child, element));
+  children.forEach((child) => mountDOM(child, element, null, hostComponent));
   insert(element, parentElement, index);
 }
 
-function addProps(el, props, vdom) {
-  const { on: events, ...attrs } = props;
-  vdom.listeners = addEventListeners(events, el);
+function addProps(el,vdom, hostComponent) {
+  const { props: attrs, events } = extractPropsAndEvents(vdom);
+  vdom.listeners = addEventListeners(events, el, hostComponent);
   setAttributes(el, attrs);
 }
 
@@ -63,11 +70,20 @@ function insert(el, parentEl, index) {
     throw new Error(`Index must be a positive integer, got ${index}`);
   }
 
-  const children = parentEl.childNodes
+  const children = parentEl.childNodes;
 
   if (index >= children.length) {
     parentEl.append(el);
   } else {
     parentEl.insertBefore(el, children[index]);
   }
+}
+
+function createComponentNode(vdom, parentEl, index, hostComponent) {
+  const Component = vdom.tag;
+  const { props, events } = extractPropsAndEvents(vdom);
+  const component = new Component(props, events, hostComponent);
+  component.mount(parentEl, index);
+  vdom.component = component;
+  vdom.el = component.firstElement;
 }
