@@ -132,18 +132,19 @@ function patchStyles(el, oldStyle = {}, newStyle = {}) {
 
 function patchEvents(el, oldListeners = {}, oldEvents = {}, newEvents = {}, hostComponent) {
   const { removed, added, updated } = objectsDiff(oldEvents, newEvents);
+  const listeners = { ...oldListeners };
+
   for (const eventName of removed.concat(updated)) {
     el.removeEventListener(eventName, oldListeners[eventName]);
+    delete listeners[eventName];
   }
-
-  const addedListeners = {};
 
   for (const eventName of added.concat(updated)) {
     const listener = addEventListener(eventName, newEvents[eventName], el, hostComponent);
-    addedListeners[eventName] = listener;
+    listeners[eventName] = listener;
   }
 
-  return addedListeners;
+  return listeners;
 }
 
 function patchChildren(oldVdom, newVdom, hostComponent) {
