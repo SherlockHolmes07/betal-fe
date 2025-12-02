@@ -6,7 +6,9 @@ import { DOM_TYPES, extractChildren } from "./h.js";
 import { hasOwnProperty } from './utils/objects.js';
 import { Dispatcher } from './dispatcher.js';
 
-export function defineComponent({ render, state, ...methods }) {
+const emptyFunction = () => {};
+
+export function defineComponent({ render, state, onMounted = emptyFunction, onUnmounted = emptyFunction, ...methods }) {
   class Component {
     #vdom = null;
     #isMounted = false;
@@ -53,6 +55,14 @@ export function defineComponent({ render, state, ...methods }) {
       this.#vdom = null;
       this.#hostEl = null;
       this.#isMounted = false;
+    }
+
+    onMounted() {
+      return Promise.resolve(onMounted.call(this));
+    }
+    
+    onUnmounted() {
+      return Promise.resolve(onUnmounted.call(this));
     }
 
     updateProps(props) {
