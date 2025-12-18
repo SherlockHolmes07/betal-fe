@@ -2,7 +2,7 @@ import { mountDOM } from "./mount-dom";
 import { destroyDOM } from "./destroy-dom";
 import { h } from "./h";
 
-export function createApp(RootComponent, props = {}) {
+export function createBetalApp(RootComponent, props = {}) {
   let parentEl = null;
   let isMounted = false;
   let vdom = null;
