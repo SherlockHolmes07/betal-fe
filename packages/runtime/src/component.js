@@ -5,10 +5,11 @@ import { patchDOM } from "./patch-dom.js";
 import { DOM_TYPES, extractChildren } from "./h.js";
 import { hasOwnProperty } from './utils/objects.js';
 import { Dispatcher } from './dispatcher.js';
+import { enqueueJob } from './scheduler.js';
 
 const emptyFunction = () => {};
 
-export function defineComponent({ render, state, onMounted = emptyFunction, onUnmounted = emptyFunction, ...methods }) {
+export function defineComponent({ render, state, onMounted = emptyFunction, onUnmounted = emptyFunction, onPropsChange = emptyFunction, onStateChange = emptyFunction, ...methods }) {
   class Component {
     #vdom = null;
     #isMounted = false;
@@ -28,6 +29,7 @@ export function defineComponent({ render, state, onMounted = emptyFunction, onUn
     updateState(newState) {
       this.state = { ...this.state, ...newState };
       this.#patch();
+      enqueueJob(() => this.onStateChange());
     }
 
     render() {
@@ -65,13 +67,23 @@ export function defineComponent({ render, state, onMounted = emptyFunction, onUn
       return Promise.resolve(onUnmounted.call(this));
     }
 
+    onPropsChange(newProps, oldProps) {
+      return Promise.resolve(onPropsChange.call(this, newProps, oldProps));
+    }
+
+    onStateChange() {
+      return Promise.resolve(onStateChange.call(this));
+    }
+
     updateProps(props) {
       const newProps = { ...this.props, ...props };
       if (equal(this.props, newProps)) {
         return;
       }
+      const oldProps = this.props;
       this.props = newProps;
       this.#patch();
+      enqueueJob(() => this.onPropsChange(this.props, oldProps));
     }
 
     emit(eventName, payload) {
