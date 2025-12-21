@@ -5,10 +5,14 @@ export const DOM_TYPES = {
   ELEMENT: "element",
   FRAGMENT: "fragment",
   COMPONENT: "component",
+  SLOT: "slot",
 };
 
+let hSlotCalled = false;
+
 export function h(tag, props = {}, children = []) {
-  const type = typeof tag === "string" ? DOM_TYPES.ELEMENT : DOM_TYPES.COMPONENT;
+  const type =
+    typeof tag === "string" ? DOM_TYPES.ELEMENT : DOM_TYPES.COMPONENT;
   return {
     type,
     tag,
@@ -18,9 +22,7 @@ export function h(tag, props = {}, children = []) {
 }
 
 function mapTextNodes(nodes) {
-  return nodes.map((node) => 
-    typeof node === "string" ? hString(node) : node
-  );
+  return nodes.map((node) => (typeof node === "string" ? hString(node) : node));
 }
 
 export function hString(str) {
@@ -32,6 +34,19 @@ export function hFragment(vNodes) {
     type: DOM_TYPES.FRAGMENT,
     children: mapTextNodes(withoutNulls(vNodes)),
   };
+}
+
+export function didCreateSlot() {
+  return hSlotCalled;
+}
+
+export function resetDidCreateSlot() {
+  hSlotCalled = false;
+}
+
+export function hSlot(children = []) {
+  hSlotCalled = true;
+  return { type: DOM_TYPES.SLOT, children };
 }
 
 export function extractChildren(vdom) {

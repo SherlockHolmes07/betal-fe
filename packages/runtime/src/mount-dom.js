@@ -82,9 +82,10 @@ function insert(el, parentEl, index) {
 }
 
 function createComponentNode(vdom, parentEl, index, hostComponent) {
-  const Component = vdom.tag;
+  const { tag: Component, children } = vdom
   const { props, events } = extractPropsAndEvents(vdom);
   const component = new Component(props, events, hostComponent);
+  component.setExternalContent(children);
   component.mount(parentEl, index);
   vdom.component = component;
   vdom.el = component.firstElement;

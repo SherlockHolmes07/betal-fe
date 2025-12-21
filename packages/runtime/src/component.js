@@ -2,10 +2,11 @@ import equal from 'fast-deep-equal';
 import { destroyDOM } from "./destroy-dom.js";
 import { mountDOM } from "./mount-dom.js";
 import { patchDOM } from "./patch-dom.js";
-import { DOM_TYPES, extractChildren } from "./h.js";
+import { DOM_TYPES, extractChildren, didCreateSlot, resetDidCreateSlot } from "./h.js";
 import { hasOwnProperty } from './utils/objects.js';
 import { Dispatcher } from './dispatcher.js';
 import { enqueueJob } from './scheduler.js';
+import { fillSlots } from './slots.js'
 
 const emptyFunction = () => {};
 
@@ -18,12 +19,17 @@ export function defineComponent({ render, state, onMounted = emptyFunction, onUn
     #parentComponent = null;
     #dispatcher = new Dispatcher();
     #subscriptions = [];
+    #children = [];
 
     constructor(props = {}, eventHandlers = {}, parentComponent = null) {
       this.props = props;
       this.state = state ? state(props) : {};
       this.#eventHandlers = eventHandlers;
       this.#parentComponent = parentComponent;
+    }
+
+    setExternalContent(children) {
+      this.#children = children;
     }
 
     updateState(newState) {
@@ -33,7 +39,13 @@ export function defineComponent({ render, state, onMounted = emptyFunction, onUn
     }
 
     render() {
-      return render.call(this);
+      const vdom = render.call(this);
+      if (didCreateSlot()) {
+        fillSlots(vdom, this.#children);
+        resetDidCreateSlot();
+      }
+
+      return vdom;
     }
 
     mount(hostEl, index = null) {
