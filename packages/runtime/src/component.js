@@ -20,6 +20,7 @@ export function defineComponent({ render, state, onMounted = emptyFunction, onUn
     #dispatcher = new Dispatcher();
     #subscriptions = [];
     #children = [];
+    #appContext = null;
 
     constructor(props = {}, eventHandlers = {}, parentComponent = null) {
       this.props = props;
@@ -100,6 +101,14 @@ export function defineComponent({ render, state, onMounted = emptyFunction, onUn
 
     emit(eventName, payload) {
       this.#dispatcher.dispatch(eventName, payload);
+    }
+
+    setAppContext(appContext) {
+      this.#appContext = appContext;
+    }
+
+    get appContext() {
+      return this.#appContext;
     }
 
     #patch() {
