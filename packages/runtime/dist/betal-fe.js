@@ -141,9 +141,12 @@ const DOM_TYPES = {
   ELEMENT: "element",
   FRAGMENT: "fragment",
   COMPONENT: "component",
+  SLOT: "slot",
 };
+let hSlotCalled = false;
 function h(tag, props = {}, children = []) {
-  const type = typeof tag === "string" ? DOM_TYPES.ELEMENT : DOM_TYPES.COMPONENT;
+  const type =
+    typeof tag === "string" ? DOM_TYPES.ELEMENT : DOM_TYPES.COMPONENT;
   return {
     type,
     tag,
@@ -152,9 +155,7 @@ function h(tag, props = {}, children = []) {
   };
 }
 function mapTextNodes(nodes) {
-  return nodes.map((node) =>
-    typeof node === "string" ? hString(node) : node
-  );
+  return nodes.map((node) => (typeof node === "string" ? hString(node) : node));
 }
 function hString(str) {
   return { type: DOM_TYPES.TEXT, value: str };
@@ -164,6 +165,16 @@ function hFragment(vNodes) {
     type: DOM_TYPES.FRAGMENT,
     children: mapTextNodes(withoutNulls(vNodes)),
   };
+}
+function didCreateSlot() {
+  return hSlotCalled;
+}
+function resetDidCreateSlot() {
+  hSlotCalled = false;
+}
+function hSlot(children = []) {
+  hSlotCalled = true;
+  return { type: DOM_TYPES.SLOT, children };
 }
 function extractChildren(vdom) {
   if (vdom.children == null) {
@@ -249,6 +260,39 @@ function removeEventListeners(listeners = {}, el) {
   });
 }
 
+let isScheduled = false;
+const jobs = [];
+function enqueueJob(job) {
+  jobs.push(job);
+  scheduleUpdate();
+}
+function scheduleUpdate() {
+  if (isScheduled) return;
+  isScheduled = true;
+  queueMicrotask(processJobs);
+}
+function processJobs() {
+  while (jobs.length > 0) {
+    const job = jobs.shift();
+    const result = job();
+    Promise.resolve(result).then(
+      () => {
+      },
+      (error) => {
+        console.error(`[scheduler]: ${error}`);
+      }
+    );
+  }
+  isScheduled = false;
+}
+function nextTick() {
+  scheduleUpdate();
+  return flushPromises();
+}
+function flushPromises() {
+  return new Promise((resolve) => setTimeout(resolve));
+}
+
 function extractPropsAndEvents(vdom) {
   const { on: events = {}, ...props } = vdom.props;
   delete props.key;
@@ -267,6 +311,7 @@ function mountDOM(vDom, parentElement, index, hostComponent = null) {
     }
     case DOM_TYPES.COMPONENT: {
       createComponentNode(vDom, parentElement, index, hostComponent);
+      enqueueJob(() => vDom.component.onMounted());
       break;
     }
     case DOM_TYPES.FRAGMENT: {
@@ -320,9 +365,11 @@ function insert(el, parentEl, index) {
   }
 }
 function createComponentNode(vdom, parentEl, index, hostComponent) {
-  const Component = vdom.tag;
+  const { tag: Component, children } = vdom;
   const { props, events } = extractPropsAndEvents(vdom);
   const component = new Component(props, events, hostComponent);
+  component.setExternalContent(children);
+  component.setAppContext(hostComponent?.appContext ?? {});
   component.mount(parentEl, index);
   vdom.component = component;
   vdom.el = component.firstElement;
@@ -345,6 +392,7 @@ function destroyDOM(vDom) {
     }
     case DOM_TYPES.COMPONENT: {
       vDom.component.unmount();
+      enqueueJob(() => vDom.component.onUnmounted());
       break;
     }
     default: {
@@ -371,10 +419,259 @@ function removeFragmentNodes(vDom) {
   children.forEach(destroyDOM);
 }
 
-function createApp(RootComponent, props = {}) {
+class Dispatcher {
+  #subs = new Map();
+  #afterHandlers = [];
+  subscribe(commandName, handler) {
+    if (!this.#subs.has(commandName)) {
+      this.#subs.set(commandName, []);
+    }
+    const handlers = this.#subs.get(commandName);
+    if (handlers.includes(handler)) {
+      return () => {};
+    }
+    handlers.push(handler);
+    return () => {
+      const idx = handlers.indexOf(handler);
+      handlers.splice(idx, 1);
+    };
+  }
+  afterEveryCommand(handler) {
+    this.#afterHandlers.push(handler);
+    return () => {
+      const idx = this.#afterHandlers.indexOf(handler);
+      this.#afterHandlers.splice(idx, 1);
+    };
+  }
+  dispatch(commandName, payload) {
+    if (this.#subs.has(commandName)) {
+      this.#subs.get(commandName).forEach((handler) => handler(payload));
+    }
+    else {
+      console.warn(`No handlers for command: ${commandName}`);
+    }
+    this.#afterHandlers.forEach((handler) => handler());
+  }
+}
+
+const CATCH_ALL_ROUTE = "*";
+function makeRouteMatcher(route) {
+  return routeHasParams(route)
+    ? makeMatcherWithParams(route)
+    : makeMatcherWithoutParams(route);
+}
+function routeHasParams({ path }) {
+  return path.includes(":");
+}
+function makeMatcherWithParams(route) {
+  const regex = makeRouteWithParamsRegex(route);
+  const isRedirect = typeof route.redirect === "string";
+  return {
+    route,
+    isRedirect,
+    checkMatch(path) {
+      return regex.test(path);
+    },
+    extractParams(path) {
+      const { groups } = regex.exec(path);
+      return groups;
+    },
+    extractQuery,
+  };
+}
+function makeRouteWithParamsRegex({ path }) {
+  const regex = path.replace(
+    /:([^/]+)/g,
+    (_, paramName) => `(?<${paramName}>[^/]+)`
+  );
+  return new RegExp(`^${regex}$`);
+}
+function makeMatcherWithoutParams(route) {
+  const regex = makeRouteWithoutParamsRegex(route);
+  const isRedirect = typeof route.redirect === "string";
+  return {
+    route,
+    isRedirect,
+    checkMatch(path) {
+      return regex.test(path);
+    },
+    extractParams() {
+      return {};
+    },
+    extractQuery,
+  };
+}
+function makeRouteWithoutParamsRegex({ path }) {
+  if (path === CATCH_ALL_ROUTE) {
+    return new RegExp("^.*$");
+  }
+  return new RegExp(`^${path}$`);
+}
+function extractQuery(path) {
+  const queryIndex = path.indexOf("?");
+  if (queryIndex === -1) {
+    return {};
+  }
+  const search = new URLSearchParams(path.slice(queryIndex + 1));
+  return Object.fromEntries(search.entries());
+}
+
+function assert(condition, message = 'Assertion failed') {
+  if (!condition) {
+    throw new Error(message)
+  }
+}
+
+const ROUTER_EVENT = "router-event";
+class HashRouter {
+  #isInitialized = false;
+  #matchers = [];
+  #matchedRoute = null;
+  #dispatcher = new Dispatcher();
+  #subscriptions = new WeakMap();
+  #subscriberFns = new Set();
+  get matchedRoute() {
+    return this.#matchedRoute;
+  }
+  #params = {};
+  get params() {
+    return this.#params;
+  }
+  #query = {};
+  get query() {
+    return this.#query;
+  }
+  get #currentRouteHash() {
+    const hash = document.location.hash;
+    if (hash === "") {
+      return "/";
+    }
+    return hash.slice(1);
+  }
+  #onPopState = () => this.#matchCurrentRoute();
+  constructor(routes = []) {
+    assert(Array.isArray(routes), "Routes must be an array");
+    this.#matchers = routes.map(makeRouteMatcher);
+  }
+  async init() {
+    if (this.#isInitialized) {
+      return;
+    }
+    if (document.location.hash === "") {
+      window.history.replaceState({}, "", "#/");
+    }
+    window.addEventListener("popstate", this.#onPopState);
+    await this.#matchCurrentRoute();
+    this.#isInitialized = true;
+  }
+  destroy() {
+    if (!this.#isInitialized) {
+      return;
+    }
+    window.removeEventListener("popstate", this.#onPopState);
+    Array.from(this.#subscriberFns).forEach(this.unsubscribe, this);
+    this.#isInitialized = false;
+  }
+  async navigateTo(path) {
+    const matcher = this.#matchers.find((matcher) => matcher.checkMatch(path));
+    if (matcher == null) {
+      console.warn(`[Router] No route matches path "${path}"`);
+      this.#matchedRoute = null;
+      this.#params = {};
+      this.#query = {};
+      return;
+    }
+    if (matcher.isRedirect) {
+      return this.navigateTo(matcher.route.redirect);
+    }
+    const from = this.#matchedRoute;
+    const to = matcher.route;
+    const { shouldNavigate, shouldRedirect, redirectPath } =
+      await this.#canChangeRoute(from, to);
+    if (shouldRedirect) {
+      return this.navigateTo(redirectPath);
+    }
+    if (shouldNavigate) {
+      this.#matchedRoute = matcher.route;
+      this.#params = matcher.extractParams(path);
+      this.#query = matcher.extractQuery(path);
+      this.#pushState(path);
+      this.#dispatcher.dispatch(ROUTER_EVENT, { from, to, router: this });
+    }
+  }
+  back() {
+    window.history.back();
+  }
+  forward() {
+    window.history.forward();
+  }
+  subscribe(handler) {
+    const unsubscribe = this.#dispatcher.subscribe(ROUTER_EVENT, handler);
+    this.#subscriptions.set(handler, unsubscribe);
+    this.#subscriberFns.add(handler);
+  }
+  unsubscribe(handler) {
+    const unsubscribe = this.#subscriptions.get(handler);
+    if (unsubscribe) {
+      unsubscribe();
+      this.#subscriptions.delete(handler);
+      this.#subscriberFns.delete(handler);
+    }
+  }
+  #pushState(path) {
+    window.history.pushState({}, "", `#${path}`);
+  }
+  #matchCurrentRoute() {
+    return this.navigateTo(this.#currentRouteHash);
+  }
+  async #canChangeRoute(from, to) {
+    const guard = to.beforeEnter;
+    if (typeof guard !== "function") {
+      return {
+        shouldRedirect: false,
+        shouldNavigate: true,
+        redirectPath: null,
+      };
+    }
+    const result = await guard(from?.path, to?.path);
+    if (result === false) {
+      return {
+        shouldRedirect: false,
+        shouldNavigate: false,
+        redirectPath: null,
+      };
+    }
+    if (typeof result === "string") {
+      return {
+        shouldRedirect: true,
+        shouldNavigate: false,
+        redirectPath: result,
+      };
+    }
+    return {
+      shouldRedirect: false,
+      shouldNavigate: true,
+      redirectPath: null,
+    };
+  }
+}
+class NoopRouter {
+  init() {}
+  destroy() {}
+  navigateTo() {}
+  back() {}
+  forward() {}
+  subscribe() {}
+  unsubscribe() {}
+}
+
+function createBetalApp(RootComponent, props = {}, options = {}) {
   let parentEl = null;
   let isMounted = false;
   let vdom = null;
+  const context = {
+    router: options.router || new NoopRouter(),
+  };
   function reset() {
     parentEl = null;
     isMounted = false;
@@ -387,7 +684,8 @@ function createApp(RootComponent, props = {}) {
       }
       parentEl = _parentEl;
       vdom = h(RootComponent, props);
-      mountDOM(vdom, parentEl);
+      mountDOM(vdom, parentEl, null, { appContext: context });
+      context.router.init();
       isMounted = true;
     },
     unmount() {
@@ -395,6 +693,7 @@ function createApp(RootComponent, props = {}) {
         throw new Error("The application is not mounted");
       }
       destroyDOM(vdom);
+      context.router.destroy();
       reset();
     },
   };
@@ -631,48 +930,53 @@ function patchChildren(oldVdom, newVdom, hostComponent) {
 }
 function patchComponent(oldVdom, newVdom) {
   const { component } = oldVdom;
+  const { children } = newVdom;
   const { props } = extractPropsAndEvents(newVdom);
+  component.setExternalContent(children);
   component.updateProps(props);
   newVdom.component = component;
   newVdom.el = component.firstElement;
 }
 
-class Dispatcher {
-  #subs = new Map();
-  #afterHandlers = [];
-  subscribe(commandName, handler) {
-    if (!this.#subs.has(commandName)) {
-      this.#subs.set(commandName, []);
-    }
-    const handlers = this.#subs.get(commandName);
-    if (handlers.includes(handler)) {
-      return () => {};
-    }
-    handlers.push(handler);
-    return () => {
-      const idx = handlers.indexOf(handler);
-      handlers.splice(idx, 1);
-    };
-  }
-  afterEveryCommand(handler) {
-    this.#afterHandlers.push(handler);
-    return () => {
-      const idx = this.#afterHandlers.indexOf(handler);
-      this.#afterHandlers.splice(idx, 1);
-    };
-  }
-  dispatch(commandName, payload) {
-    if (this.#subs.has(commandName)) {
-      this.#subs.get(commandName).forEach((handler) => handler(payload));
-    }
-    else {
-      console.warn(`No handlers for command: ${commandName}`);
-    }
-    this.#afterHandlers.forEach((handler) => handler());
+function traverseDFS(
+  vdom,
+  processNode,
+  shouldSkipBranch = () => false,
+  parentNode = null,
+  index = null
+) {
+  if (shouldSkipBranch(vdom)) return;
+  processNode(vdom, parentNode, index);
+  if (vdom.children) {
+    vdom.children.forEach((child, i) =>
+      traverseDFS(child, processNode, shouldSkipBranch, vdom, i)
+    );
   }
 }
 
-function defineComponent({ render, state, ...methods }) {
+function fillSlots(vdom, externalContent = []) {
+  function processNode(node, parent, index) {
+    insertViewInSlot(node, parent, index, externalContent);
+  }
+  traverseDFS(vdom, processNode, shouldSkipBranch);
+}
+function insertViewInSlot(node, parent, index, externalContent) {
+  if (node.type !== DOM_TYPES.SLOT) return;
+  const defaultContent = node.children;
+  const views = externalContent.length > 0 ? externalContent : defaultContent;
+  const hasContent = views.length > 0;
+  if (hasContent) {
+    parent.children.splice(index, 1, hFragment(views));
+  } else {
+    parent.children.splice(index, 1);
+  }
+}
+function shouldSkipBranch(node) {
+  return node.type === DOM_TYPES.COMPONENT;
+}
+
+const emptyFunction = () => {};
+function defineComponent({ render, state, onMounted = emptyFunction, onUnmounted = emptyFunction, onPropsChange = emptyFunction, onStateChange = emptyFunction, ...methods }) {
   class Component {
     #vdom = null;
     #isMounted = false;
@@ -681,18 +985,29 @@ function defineComponent({ render, state, ...methods }) {
     #parentComponent = null;
     #dispatcher = new Dispatcher();
     #subscriptions = [];
+    #children = [];
+    #appContext = null;
     constructor(props = {}, eventHandlers = {}, parentComponent = null) {
       this.props = props;
       this.state = state ? state(props) : {};
       this.#eventHandlers = eventHandlers;
       this.#parentComponent = parentComponent;
     }
+    setExternalContent(children) {
+      this.#children = children;
+    }
     updateState(newState) {
       this.state = { ...this.state, ...newState };
       this.#patch();
+      enqueueJob(() => this.onStateChange());
     }
     render() {
-      return render.call(this);
+      const vdom = render.call(this);
+      if (didCreateSlot()) {
+        fillSlots(vdom, this.#children);
+        resetDidCreateSlot();
+      }
+      return vdom;
     }
     mount(hostEl, index = null) {
       if (this.#isMounted) {
@@ -715,16 +1030,36 @@ function defineComponent({ render, state, ...methods }) {
       this.#hostEl = null;
       this.#isMounted = false;
     }
+    onMounted() {
+      return Promise.resolve(onMounted.call(this));
+    }
+    onUnmounted() {
+      return Promise.resolve(onUnmounted.call(this));
+    }
+    onPropsChange(newProps, oldProps) {
+      return Promise.resolve(onPropsChange.call(this, newProps, oldProps));
+    }
+    onStateChange() {
+      return Promise.resolve(onStateChange.call(this));
+    }
     updateProps(props) {
       const newProps = { ...this.props, ...props };
       if (equal(this.props, newProps)) {
         return;
       }
+      const oldProps = this.props;
       this.props = newProps;
       this.#patch();
+      enqueueJob(() => this.onPropsChange(this.props, oldProps));
     }
     emit(eventName, payload) {
       this.#dispatcher.dispatch(eventName, payload);
+    }
+    setAppContext(appContext) {
+      this.#appContext = appContext;
+    }
+    get appContext() {
+      return this.#appContext;
     }
     #patch() {
       if (!this.#isMounted) {
@@ -780,4 +1115,50 @@ function defineComponent({ render, state, ...methods }) {
   return Component;
 }
 
-export { createApp, defineComponent, h, hFragment, hString };
+const RouterLink = defineComponent({
+  render() {
+    const { to } = this.props;
+    return h(
+      "a",
+      {
+        href: to,
+        on: {
+          click: (e) => {
+            e.preventDefault();
+            this.appContext.router.navigateTo(to);
+          },
+        },
+      },
+      [hSlot()]
+    );
+  },
+});
+const RouterOutlet = defineComponent({
+  state() {
+    return {
+      matchedRoute: null,
+      subscription: null,
+    };
+  },
+  onMounted() {
+    const subscription = this.appContext.router.subscribe(({ to }) => {
+      this.handleRouteChange(to);
+    });
+    this.updateState({ subscription });
+  },
+  onUnmounted() {
+    const { subscription } = this.state;
+    this.appContext.router.unsubscribe(subscription);
+  },
+  handleRouteChange(matchedRoute) {
+    this.updateState({ matchedRoute });
+  },
+  render() {
+    const { matchedRoute } = this.state;
+    return h("div", { id: "router-outlet" }, [
+      matchedRoute ? h(matchedRoute.component) : null,
+    ]);
+  },
+});
+
+export { HashRouter, RouterLink, RouterOutlet, createBetalApp, defineComponent, h, hFragment, hSlot, hString, nextTick };

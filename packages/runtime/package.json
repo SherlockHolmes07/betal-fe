@@ -1,10 +1,11 @@
 {
   "name": "betal-fe",
-  "version": "3.1.0",
+  "version": "4.0.1",
   "type": "module",
   "main": "dist/betal-fe.js",
   "files": [
-    "dist/betal-fe.js"
+    "dist/betal-fe.js",
+    "README.md"
   ],
   "scripts": {
     "build": "rollup -c",
@@ -14,10 +15,20 @@
     "test": "vitest",
     "test:run": "vitest --run"
   },
-  "keywords": [],
+  "keywords": [
+    "framework",
+    "virtual-dom",
+    "vdom",
+    "components",
+    "reactive",
+    "router",
+    "slots",
+    "spa",
+    "frontend"
+  ],
   "author": "",
-  "license": "ISC",
-  "description": "",
+  "license": "MIT",
+  "description": "A lightweight frontend framework with Virtual DOM, reactive components, routing, and slots",
   "devDependencies": {
     "@eslint/js": "^9.38.0",
     "@rollup/plugin-commonjs": "^29.0.0",
