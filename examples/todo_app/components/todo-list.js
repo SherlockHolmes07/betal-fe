@@ -1,21 +1,21 @@
-import { h, defineComponent } from "../../../packages/runtime/src/index.js";
-import TodoItem from "./todo-item";
+import { h, defineComponent } from "betal-fe";
+import TodoItem from "./todo-item.js";
 
 const TodoList = defineComponent({
   render() {
-    const { todos } = this.props; // Receive todos as prop from parent component
+    const { todos } = this.props;
 
     return h(
-      "ul",
-      {},
-      todos.map((todo, i) =>
+      "div",
+      { class: "space-y-4" },
+      todos.map((todo) =>
         h(TodoItem, {
-          key: todo.id, // Unique key for efficient patching
-          todo: todo.text,
-          i,
+          key: todo.id,
+          todo,
           on: {
-            remove: (i) => this.emit("remove", i), // Bubble up 'remove' event to parent component
-            edit: ({ edited, i }) => this.emit("edit", { edited, i }), // Bubble up 'edit' event to parent component  
+            remove: (id) => this.emit("remove", id),
+            edit: (data) => this.emit("edit", data),
+            toggle: (id) => this.emit("toggle", id),
           },
         })
       )
