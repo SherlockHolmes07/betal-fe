@@ -13,12 +13,44 @@ export const RouterLink = defineComponent({
         on: {
           click: (e) => {
             e.preventDefault();
-            this.appContext.router.navigateTo(to);
+            this.handleNavigation(to);
           },
         },
       },
       [hSlot()]
     );
+  },
+
+  handleNavigation(to) {
+    const anchorIndex = to.indexOf('#');
+    
+    if (anchorIndex !== -1 && anchorIndex > 0) {
+      // Case: /path#anchor
+      const path = to.substring(0, anchorIndex);
+      const anchor = to.substring(anchorIndex + 1);
+      this.appContext.router.navigateTo(path);
+      
+      // Wait for next tick to ensure DOM is updated
+      setTimeout(() => {
+        this.scrollToAnchor(anchor);
+      }, 0);
+    } else if (anchorIndex === 0) {
+      // Case: #anchor
+      const anchor = to.substring(1);
+      this.scrollToAnchor(anchor);
+    } else {
+      // Case: /path
+      this.appContext.router.navigateTo(to);
+    }
+  },
+
+  scrollToAnchor(anchorId) {
+    const element = document.getElementById(anchorId);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else {
+      console.warn(`[RouterLink] Element with id "${anchorId}" not found`);
+    }
   },
 });
 
