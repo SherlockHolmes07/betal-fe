@@ -530,6 +530,7 @@ class HashRouter {
   #dispatcher = new Dispatcher();
   #subscriptions = new WeakMap();
   #subscriberFns = new Set();
+  #scrollBehavior = 'top';
   get matchedRoute() {
     return this.#matchedRoute;
   }
@@ -549,9 +550,12 @@ class HashRouter {
     return hash.slice(1);
   }
   #onPopState = () => this.#matchCurrentRoute();
-  constructor(routes = []) {
+  constructor(routes = [], options = {}) {
     assert(Array.isArray(routes), "Routes must be an array");
     this.#matchers = routes.map(makeRouteMatcher);
+    if (options.scrollBehavior !== undefined) {
+      this.#scrollBehavior = options.scrollBehavior;
+    }
   }
   async init() {
     if (this.#isInitialized) {
@@ -596,8 +600,28 @@ class HashRouter {
       this.#params = matcher.extractParams(path);
       this.#query = matcher.extractQuery(path);
       this.#pushState(path);
+      this.#handleScrollBehavior(from, to);
       this.#dispatcher.dispatch(ROUTER_EVENT, { from, to, router: this });
     }
+  }
+  #handleScrollBehavior(from, to) {
+    if (this.#scrollBehavior === false) {
+      return;
+    }
+    setTimeout(() => {
+      if (typeof this.#scrollBehavior === 'function') {
+        const position = this.#scrollBehavior(from, to);
+        if (position) {
+          window.scrollTo({
+            left: position.x || 0,
+            top: position.y || 0,
+            behavior: position.behavior || 'smooth'
+          });
+        }
+      } else if (this.#scrollBehavior === 'top') {
+        window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+      }
+    }, 0);
   }
   back() {
     window.history.back();
