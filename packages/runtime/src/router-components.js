@@ -3,12 +3,13 @@ import { h, hSlot } from "./h.js";
 
 export const RouterLink = defineComponent({
   render() {
-    const { to } = this.props;
+    const { to, ...rest } = this.props;
 
     return h(
       "a",
       {
         href: to,
+        ...rest,
         on: {
           click: (e) => {
             e.preventDefault();
