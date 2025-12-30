@@ -15,7 +15,7 @@ npm install betal-fe
 - **Reactive State** - Automatic re-rendering on state changes
 - **Lifecycle Hooks** - `onMounted`, `onUnmounted`, `onPropsChange`, `onStateChange`
 - **Slots** - Content projection for flexible component composition (Vue-style)
-- **Hash Router** - Built-in SPA routing with route guards and params
+- **Hash Router** - Built-in SPA routing with route guards, params, and scroll behavior
 - **Event System** - Parent-child communication via emit/subscribe
 - **Scheduler** - Async lifecycle execution with microtask batching
 
@@ -65,7 +65,9 @@ const router = new HashRouter([
   { path: '/', component: HomePage },
   { path: '/about', component: AboutPage },
   { path: '/user/:id', component: UserPage },
-]);
+], {
+  scrollBehavior: 'top'  // 'top', false, or custom function
+});
 
 const App = defineComponent({
   render() {
@@ -197,10 +199,36 @@ Creates a hash-based router.
 const router = new HashRouter([
   { path: '/', component: HomePage },
   { path: '/user/:id', component: UserPage },
+  { 
+    path: '/admin', 
+    component: AdminPage,
+    beforeEnter: (from, to) => {
+      // Route guard - return false to cancel, string to redirect
+      return isLoggedIn() ? true : '/login';
+    }
+  }
 ], {
-  beforeEnter: (to, from) => {
-    // Route guard - return false to cancel navigation
-    return true;
+  scrollBehavior: 'top'  // 'top' (default), false, or custom function
+});
+```
+
+#### Scroll Behavior Options
+
+```javascript
+// Default: scroll to top
+new HashRouter(routes);
+
+// Disable scroll
+new HashRouter(routes, { scrollBehavior: false });
+
+// Custom function for route-specific behavior
+new HashRouter(routes, {
+  scrollBehavior: (from, to) => {
+    // Don't scroll when navigating within the same section
+    if (from?.path?.startsWith('/docs') && to?.path?.startsWith('/docs')) {
+      return null;  // Prevent scrolling
+    }
+    return { x: 0, y: 0, behavior: 'smooth' };
   }
 });
 ```
@@ -216,7 +244,14 @@ this.appContext.router.navigateTo('/path')
 #### `RouterLink` Component
 
 ```javascript
-h(RouterLink, { to: '/about', activeClass: 'active' }, ['About'])
+h(RouterLink, { to: '/about' }, ['About'])
+
+// With anchor fragments
+h(RouterLink, { to: '/about#team' }, ['Meet the Team'])
+h(RouterLink, { to: '#features' }, ['Jump to Features'])
+
+// With custom classes and attributes
+h(RouterLink, { to: '/about', class: 'nav-link active' }, ['About'])
 ```
 
 #### `RouterOutlet` Component

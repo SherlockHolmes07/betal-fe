@@ -577,9 +577,12 @@ class HashRouter {
     this.#isInitialized = false;
   }
   async navigateTo(path) {
-    const matcher = this.#matchers.find((matcher) => matcher.checkMatch(path));
+    const hashIndex = path.indexOf('#', 1);
+    const pathWithoutHash = hashIndex !== -1 ? path.slice(0, hashIndex) : path;
+    const hash = hashIndex !== -1 ? path.slice(hashIndex + 1) : null;
+    const matcher = this.#matchers.find((matcher) => matcher.checkMatch(pathWithoutHash));
     if (matcher == null) {
-      console.warn(`[Router] No route matches path "${path}"`);
+      console.warn(`[Router] No route matches path "${pathWithoutHash}"`);
       this.#matchedRoute = null;
       this.#params = {};
       this.#query = {};
@@ -597,29 +600,36 @@ class HashRouter {
     }
     if (shouldNavigate) {
       this.#matchedRoute = matcher.route;
-      this.#params = matcher.extractParams(path);
-      this.#query = matcher.extractQuery(path);
+      this.#params = matcher.extractParams(pathWithoutHash);
+      this.#query = matcher.extractQuery(pathWithoutHash);
       this.#pushState(path);
-      this.#handleScrollBehavior(from, to);
+      this.#handleScrollBehavior(from, to, hash);
       this.#dispatcher.dispatch(ROUTER_EVENT, { from, to, router: this });
     }
   }
-  #handleScrollBehavior(from, to) {
+  #handleScrollBehavior(from, to, hash) {
     if (this.#scrollBehavior === false) {
       return;
     }
     setTimeout(() => {
       if (typeof this.#scrollBehavior === 'function') {
-        const position = this.#scrollBehavior(from, to);
+        const position = this.#scrollBehavior(from, to, { hash });
         if (position) {
           window.scrollTo({
             left: position.x || 0,
             top: position.y || 0,
-            behavior: position.behavior || 'smooth'
+            behavior: position.behavior || 'auto'
           });
         }
       } else if (this.#scrollBehavior === 'top') {
-        window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+        if (hash) {
+          const element = document.getElementById(hash);
+          if (element) {
+            element.scrollIntoView({ behavior: 'auto' });
+            return;
+          }
+        }
+        window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
       }
     }, 0);
   }
@@ -1145,41 +1155,17 @@ const RouterLink = defineComponent({
     return h(
       "a",
       {
-        href: to,
+        href: `#${to}`,
         ...rest,
         on: {
           click: (e) => {
             e.preventDefault();
-            this.handleNavigation(to);
+            this.appContext.router.navigateTo(to);
           },
         },
       },
       [hSlot()]
     );
-  },
-  handleNavigation(to) {
-    const anchorIndex = to.indexOf('#');
-    if (anchorIndex !== -1 && anchorIndex > 0) {
-      const path = to.substring(0, anchorIndex);
-      const anchor = to.substring(anchorIndex + 1);
-      this.appContext.router.navigateTo(path);
-      setTimeout(() => {
-        this.scrollToAnchor(anchor);
-      }, 0);
-    } else if (anchorIndex === 0) {
-      const anchor = to.substring(1);
-      this.scrollToAnchor(anchor);
-    } else {
-      this.appContext.router.navigateTo(to);
-    }
-  },
-  scrollToAnchor(anchorId) {
-    const element = document.getElementById(anchorId);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    } else {
-      console.warn(`[RouterLink] Element with id "${anchorId}" not found`);
-    }
   },
 });
 const RouterOutlet = defineComponent({

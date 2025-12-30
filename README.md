@@ -17,7 +17,7 @@ npm install betal-fe
 - **Reactive State** - Automatic re-rendering on state changes
 - **Lifecycle Hooks** - `onMounted`, `onUnmounted`, `onPropsChange`, `onStateChange`
 - **Slots** - Content projection for flexible component composition (Vue-style)
-- **Hash Router** - Built-in SPA routing with route guards and params
+- **Hash Router** - Built-in SPA routing with route guards, params, and scroll behavior
 - **Event System** - Parent-child communication via emit/subscribe
 - **Scheduler** - Async lifecycle execution with microtask batching
 
@@ -67,7 +67,9 @@ const router = new HashRouter([
   { path: '/', component: HomePage },
   { path: '/about', component: AboutPage },
   { path: '/user/:id', component: UserPage },
-]);
+], {
+  scrollBehavior: 'top'  // 'top', false, or custom function
+});
 
 const App = defineComponent({
   render() {
@@ -179,7 +181,7 @@ npm run build
 - **Reactive State** - Automatic re-rendering on state/props changes
 - **Event System** - Pub/sub dispatcher for component communication
 - **Async Scheduler** - Microtask-based job queue for lifecycle hooks
-- **Smart Routing** - Pattern matching with params/query extraction and route guards
+- **Smart Routing** - Pattern matching with params/query extraction, route guards, and scroll behavior
 - **Slot System** - Vue-style content projection with default fallbacks
 
 ## 🤝 Contributing

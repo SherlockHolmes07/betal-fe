@@ -75,10 +75,14 @@ export class HashRouter {
   }
 
   async navigateTo(path) {
-    const matcher = this.#matchers.find((matcher) => matcher.checkMatch(path));
+    const hashIndex = path.indexOf('#', 1); // Skip first # which is for hash routing
+    const pathWithoutHash = hashIndex !== -1 ? path.slice(0, hashIndex) : path;
+    const hash = hashIndex !== -1 ? path.slice(hashIndex + 1) : null;
+
+    const matcher = this.#matchers.find((matcher) => matcher.checkMatch(pathWithoutHash));
 
     if (matcher == null) {
-      console.warn(`[Router] No route matches path "${path}"`);
+      console.warn(`[Router] No route matches path "${pathWithoutHash}"`);
 
       this.#matchedRoute = null;
       this.#params = {};
@@ -102,16 +106,16 @@ export class HashRouter {
 
     if (shouldNavigate) {
       this.#matchedRoute = matcher.route;
-      this.#params = matcher.extractParams(path);
-      this.#query = matcher.extractQuery(path);
+      this.#params = matcher.extractParams(pathWithoutHash);
+      this.#query = matcher.extractQuery(pathWithoutHash);
       this.#pushState(path);
-      this.#handleScrollBehavior(from, to);
+      this.#handleScrollBehavior(from, to, hash);
 
       this.#dispatcher.dispatch(ROUTER_EVENT, { from, to, router: this });
     }
   }
 
-  #handleScrollBehavior(from, to) {
+  #handleScrollBehavior(from, to, hash) {
     if (this.#scrollBehavior === false) {
       // do nothing
       return;
@@ -120,16 +124,23 @@ export class HashRouter {
     // ensure DOM is updated before scrolling
     setTimeout(() => {
       if (typeof this.#scrollBehavior === 'function') {
-        const position = this.#scrollBehavior(from, to);
+        const position = this.#scrollBehavior(from, to, { hash });
         if (position) {
           window.scrollTo({
             left: position.x || 0,
             top: position.y || 0,
-            behavior: position.behavior || 'smooth'
+            behavior: position.behavior || 'auto'
           });
         }
       } else if (this.#scrollBehavior === 'top') {
-        window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+        if (hash) {
+          const element = document.getElementById(hash);
+          if (element) {
+            element.scrollIntoView({ behavior: 'auto' });
+            return;
+          }
+        }
+        window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
       }
     }, 0);
   }
