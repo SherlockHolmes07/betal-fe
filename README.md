@@ -4,6 +4,8 @@
 
 A lightweight, modern frontend framework implementing Virtual DOM, reactive components, routing, and slots from the ground up.
 
+**🌐 [Live Documentation](https://betalfe.com/#/docs)**
+
 ## 📦 Installation
 
 ```bash
@@ -191,7 +193,3 @@ Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines
 ## 📄 License
 
 [MIT](LICENSE) - Feel free to fork, modify, and build upon this project!
-
-## 🙏 Acknowledgments
-
-Built with inspiration from modern frontend frameworks to explore framework architecture and design patterns.

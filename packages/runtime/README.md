@@ -2,6 +2,8 @@
 
 A lightweight, modern frontend framework implementing Virtual DOM, reactive components, routing, and slots from the ground up.
 
+**🌐 [Documentation](https://betalfe.com/)**
+
 ## 📦 Installation
 
 ```bash
