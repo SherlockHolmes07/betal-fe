@@ -2,6 +2,8 @@
 
 A feature-rich todo application built with [Betal-FE](https://betalfe.com) framework to showcase its capabilities and best practices.
 
+**🚀 [Live Demo](https://betal-todo.vercel.app/)** - Try it now!
+
 ![Betal Todo](https://img.shields.io/badge/Framework-Betal--FE-8C9FF5?style=for-the-badge)
 ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
 
