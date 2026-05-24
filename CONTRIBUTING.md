@@ -33,12 +33,83 @@ Thank you for your interest in contributing to Betal-FE! This document provides 
    npm install
    ```
 
-3. **Create a branch**
-   ```bash
-   git checkout -b feature/my-awesome-feature
-   # or
-   git checkout -b fix/bug-description
-   ```
+3. **Create a branch** — see [Branch Strategy](#-branch-strategy) below
+
+---
+
+## 🌿 Branch Strategy
+
+All development happens off `main`. Never commit directly to `main` — every change goes through a branch + pull request.
+
+### Protected Branches
+
+| Branch | Purpose |
+|--------|---------|
+| `main` | Stable, published code. Every commit here should be a versioned release. |
+
+### Branch Types and Naming
+
+| Type | Pattern | Example | When to use |
+|------|---------|---------|-------------|
+| Feature | `feat/<scope>/<short-description>` | `feat/router/lazy-loading` | New user-facing functionality |
+| Bug fix | `fix/<scope>/<short-description>` | `fix/patch/fragment-offset` | Fixing broken behaviour |
+| Refactor | `refactor/<scope>/<short-description>` | `refactor/component/cleanup-lifecycle` | Internal code improvements without behaviour change |
+| Docs | `docs/<description>` | `docs/add-lifecycle-guide` | Documentation-only changes |
+| Test | `test/<scope>/<description>` | `test/router/guard-edge-cases` | Adding/fixing tests without code changes |
+| Chore | `chore/<description>` | `chore/update-rollup-config` | Build, tooling, dependency changes |
+| Release | `release/v<version>` | `release/v4.5.0` | Version bump + changelog prep before tagging |
+
+**Rules:**
+- Use lowercase and hyphens only — no spaces or underscores.
+- Keep the description short (3–5 words).
+- The `<scope>` segment matches the affected module: `router`, `component`, `patch`, `slots`, `scheduler`, `attrs`, `events`, `build`, etc.
+
+### Typical Workflow
+
+```
+main
+ └── feat/router/history-mode        ← you work here
+      └── (pull request → main)
+```
+
+```bash
+# Start from a fresh main
+git checkout main
+git pull origin main
+
+# Create your branch
+git checkout -b feat/slots/named-slots
+
+# Work, commit, push
+git push -u origin feat/slots/named-slots
+
+# Open a PR targeting main
+```
+
+### When to Create a Release Branch
+
+Create a `release/vX.Y.Z` branch when you're ready to ship:
+
+```bash
+git checkout main
+git pull
+git checkout -b release/v4.5.0
+# Bump version in package.json, update CHANGELOG
+git commit -m "🔖 bump version to 4.5.0"
+# PR → main, then tag after merge:
+git tag v4.5.0
+git push origin v4.5.0
+```
+
+### Versioning Guidelines (Semantic Versioning)
+
+| Change | Version bump | Example |
+|--------|-------------|---------|
+| Bug fix, docs, chore | Patch `x.y.Z` | 4.4.1 → 4.4.2 |
+| New backwards-compatible feature | Minor `x.Y.0` | 4.4.1 → 4.5.0 |
+| Breaking API change | Major `X.0.0` | 4.x → 5.0.0 |
+
+---
 
 ## 💻 Development Workflow
 
