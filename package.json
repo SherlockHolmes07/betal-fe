@@ -9,8 +9,8 @@
     "packages/runtime"
   ],
   "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "A project to learn how to write a frontend framework from scratch",
+  "author": "Dhairya Upadhyay",
+  "license": "MIT",
+  "description": "Monorepo for the Betal-FE frontend framework — core runtime package and example apps",
   "private": true
 }
