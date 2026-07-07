@@ -1,5 +1,6 @@
 # Betal-FE
 
+[![CI](https://github.com/SherlockHolmes07/betal-fe/actions/workflows/ci.yml/badge.svg)](https://github.com/SherlockHolmes07/betal-fe/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/betal-fe.svg)](https://www.npmjs.com/package/betal-fe)
 
 A lightweight, modern frontend framework implementing Virtual DOM, reactive components, routing, and slots from the ground up.
