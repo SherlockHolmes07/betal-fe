@@ -4,6 +4,17 @@ import { addEventListeners } from "./events.js";
 import { enqueueJob } from './scheduler.js';
 import { extractPropsAndEvents } from './utils/props.js';
 
+/**
+ * Mount a virtual DOM node into the real DOM, dispatching by node type.
+ * Recurses into children for elements and fragments, and instantiates the
+ * component class for component nodes.
+ *
+ * @param {Object} vDom - Virtual DOM node to mount (text, element, component, or fragment).
+ * @param {Element} parentElement - DOM element to mount the node into.
+ * @param {number|null} index - Position among `parentElement`'s children to insert at, or null to append.
+ * @param {Object|null} [hostComponent=null] - Component instance that owns this vDom tree, used for event handler binding.
+ * @returns {void}
+ */
 export function mountDOM(vDom, parentElement, index, hostComponent = null) {
   switch (vDom.type) {
     case DOM_TYPES.TEXT: {
@@ -16,6 +27,7 @@ export function mountDOM(vDom, parentElement, index, hostComponent = null) {
     }
     case DOM_TYPES.COMPONENT: {
       createComponentNode(vDom, parentElement, index, hostComponent);
+      // Enqueue the onMounted hook to be executed after the DOM mounted.
       enqueueJob(() => vDom.component.onMounted());
       break;
     }
@@ -56,12 +68,21 @@ function createElementNode(vDom, parentElement, index, hostComponent) {
   insert(element, parentElement, index);
 }
 
+/**
+ * Split a vDom's props into attributes and event listeners, then apply
+ * both to the given DOM element. 
+ */
 function addProps(el,vdom, hostComponent) {
   const { props: attrs, events } = extractPropsAndEvents(vdom);
+  // The bound listeners are stashed back on the vDom so they can be removed later during unmount.
   vdom.listeners = addEventListeners(events, el, hostComponent);
   setAttributes(el, attrs);
 }
 
+/**
+ * Insert a DOM node into a parent at a given child index, or append it
+ * if no index is given.
+ */
 function insert(el, parentEl, index) {
   if (index == null) {
     parentEl.append(el);
@@ -74,6 +95,7 @@ function insert(el, parentEl, index) {
 
   const children = parentEl.childNodes;
 
+  // If the target index is past the end, appending is equivalent and simpler.
   if (index >= children.length) {
     parentEl.append(el);
   } else {
@@ -81,6 +103,10 @@ function insert(el, parentEl, index) {
   }
 }
 
+/**
+ * Instantiate a component vDom's component class, wire up its external
+ * content and app context, and mount it into the parent element.
+ */
 function createComponentNode(vdom, parentEl, index, hostComponent) {
   const { tag: Component, children } = vdom
   const { props, events } = extractPropsAndEvents(vdom);
@@ -89,6 +115,7 @@ function createComponentNode(vdom, parentEl, index, hostComponent) {
   component.setAppContext(hostComponent?.appContext ?? {});
 
   component.mount(parentEl, index);
+  // The vDom is updated with the component instance and its first element for future reference.
   vdom.component = component;
   vdom.el = component.firstElement;
 }

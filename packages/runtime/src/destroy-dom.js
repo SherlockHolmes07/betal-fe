@@ -2,6 +2,14 @@ import { removeEventListeners } from "./events.js";
 import { DOM_TYPES } from "./h.js";
 import { enqueueJob } from './scheduler.js';
 
+/**
+ * Tear down a mounted virtual DOM node, dispatching by node type: removes
+ * the underlying DOM node(s), recurses into children, detaches event
+ * listeners, and unmounts components.
+ *
+ * @param {Object} vDom - Mounted virtual DOM node to destroy.
+ * @returns {void}
+ */
 export function destroyDOM(vDom) {
   const { type } = vDom;
 
