@@ -2,7 +2,7 @@ import equal from 'fast-deep-equal';
 import { destroyDOM } from "./destroy-dom.js";
 import { mountDOM } from "./mount-dom.js";
 import { patchDOM } from "./patch-dom.js";
-import { DOM_TYPES, extractChildren, didCreateSlot, resetDidCreateSlot } from "./h.js";
+import { DOM_TYPES, extractChildNodes, didCreateSlot, resetDidCreateSlot } from "./h.js";
 import { hasOwnProperty } from './utils/objects.js';
 import { Dispatcher } from './dispatcher.js';
 import { enqueueJob } from './scheduler.js';
@@ -140,7 +140,7 @@ export function defineComponent({ render, state, onMounted = emptyFunction, onUn
         return [];
       }
       if (this.#vdom.type === DOM_TYPES.FRAGMENT) {
-        return extractChildren(this.#vdom).flatMap((child) => {
+        return extractChildNodes(this.#vdom).flatMap((child) => {
           if (child.type === DOM_TYPES.COMPONENT) {
             return child.component.elements;
           }

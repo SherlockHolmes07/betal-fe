@@ -1,5 +1,5 @@
 import { destroyDOM } from "./destroy-dom.js";
-import { DOM_TYPES, extractChildren } from "./h.js";
+import { DOM_TYPES, extractChildNodes } from "./h.js";
 import { mountDOM } from "./mount-dom.js";
 import { areNodesEqual } from "./nodes-equal.js";
 import {
@@ -148,8 +148,8 @@ function patchEvents(el, oldListeners = {}, oldEvents = {}, newEvents = {}, host
 }
 
 function patchChildren(oldVdom, newVdom, hostComponent) {
-  const oldChildren = extractChildren(oldVdom);
-  const newChildren = extractChildren(newVdom);
+  const oldChildren = extractChildNodes(oldVdom);
+  const newChildren = extractChildNodes(newVdom);
   const parentEl = oldVdom.el;
 
   const diffSeq = arraysDiffSequence(oldChildren, newChildren, areNodesEqual);

@@ -176,14 +176,14 @@ function hSlot(children = []) {
   hSlotCalled = true;
   return { type: DOM_TYPES.SLOT, children };
 }
-function extractChildren(vdom) {
+function extractChildNodes(vdom) {
   if (vdom.children == null) {
     return [];
   }
   const children = [];
   for (const child of vdom.children) {
     if (child.type === DOM_TYPES.FRAGMENT) {
-      children.push(...extractChildren(child));
+      children.push(...extractChildNodes(child));
     } else {
       children.push(child);
     }
@@ -930,8 +930,8 @@ function patchEvents(el, oldListeners = {}, oldEvents = {}, newEvents = {}, host
   return listeners;
 }
 function patchChildren(oldVdom, newVdom, hostComponent) {
-  const oldChildren = extractChildren(oldVdom);
-  const newChildren = extractChildren(newVdom);
+  const oldChildren = extractChildNodes(oldVdom);
+  const newChildren = extractChildNodes(newVdom);
   const parentEl = oldVdom.el;
   const diffSeq = arraysDiffSequence(oldChildren, newChildren, areNodesEqual);
   for (const operation of diffSeq) {
@@ -1121,7 +1121,7 @@ function defineComponent({ render, state, onMounted = emptyFunction, onUnmounted
         return [];
       }
       if (this.#vdom.type === DOM_TYPES.FRAGMENT) {
-        return extractChildren(this.#vdom).flatMap((child) => {
+        return extractChildNodes(this.#vdom).flatMap((child) => {
           if (child.type === DOM_TYPES.COMPONENT) {
             return child.component.elements;
           }

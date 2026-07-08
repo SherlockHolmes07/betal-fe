@@ -6,7 +6,7 @@ import {
   hSlot,
   didCreateSlot,
   resetDidCreateSlot,
-  extractChildren,
+  extractChildNodes,
   DOM_TYPES,
 } from '../h.js'
 
@@ -195,13 +195,13 @@ describe('resetDidCreateSlot', () => {
 })
 
 // ---------------------------------------------------------------------------
-// extractChildren — flattens fragment children
+// extractChildNodes — flattens fragment children
 // ---------------------------------------------------------------------------
 
-describe('extractChildren', () => {
+describe('extractChildNodes', () => {
   it('returns an empty array for a vnode with no children', () => {
     const vnode = h('div')
-    expect(extractChildren(vnode)).toEqual([])
+    expect(extractChildNodes(vnode)).toEqual([])
   })
 
   it('returns direct children as-is when none are fragments', () => {
@@ -209,7 +209,7 @@ describe('extractChildren', () => {
     const em = h('em')
     const parent = h('div', {}, [span, em])
 
-    expect(extractChildren(parent)).toEqual([span, em])
+    expect(extractChildNodes(parent)).toEqual([span, em])
   })
 
   it('unwraps immediate fragment children into the flat list', () => {
@@ -218,7 +218,7 @@ describe('extractChildren', () => {
     const fragment = hFragment([a, b])
     const parent = h('div', {}, [fragment])
 
-    const children = extractChildren(parent)
+    const children = extractChildNodes(parent)
 
     expect(children).toEqual([a, b])
   })
@@ -229,7 +229,7 @@ describe('extractChildren', () => {
     const outer = hFragment([inner])
     const parent = h('div', {}, [outer])
 
-    expect(extractChildren(parent)).toEqual([leaf])
+    expect(extractChildNodes(parent)).toEqual([leaf])
   })
 
   it('handles a mix of plain nodes and fragments', () => {
@@ -239,11 +239,11 @@ describe('extractChildren', () => {
     const frag = hFragment([b, c])
     const parent = h('div', {}, [a, frag])
 
-    expect(extractChildren(parent)).toEqual([a, b, c])
+    expect(extractChildNodes(parent)).toEqual([a, b, c])
   })
 
   it('returns an empty array for a vnode whose children is null', () => {
     const vnode = { type: DOM_TYPES.FRAGMENT, children: null }
-    expect(extractChildren(vnode)).toEqual([])
+    expect(extractChildNodes(vnode)).toEqual([])
   })
 })

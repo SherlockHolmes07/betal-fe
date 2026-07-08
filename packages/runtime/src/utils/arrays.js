@@ -5,7 +5,7 @@ export const ARRAY_DIFF_OP = {
   NOOP: "noop",
 };
 
-export function withoutNulls(arr) {
+export function filterNulls(arr) {
   return arr.filter((item) => item != null);
 }
 
