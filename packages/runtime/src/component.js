@@ -10,6 +10,7 @@ import { fillSlots } from './slots.js'
 import { EMPTY_FUNCTION } from './constants.js';
 
 export function defineComponent({ render, state, onMounted = EMPTY_FUNCTION, onUnmounted = EMPTY_FUNCTION, onPropsChange = EMPTY_FUNCTION, onStateChange = EMPTY_FUNCTION, ...methods }) {
+
   class Component {
     #vdom = null;
     #isMounted = false;
@@ -21,15 +22,15 @@ export function defineComponent({ render, state, onMounted = EMPTY_FUNCTION, onU
     #children = [];
     #appContext = null;
 
+    /**
+     * Creates a component instance with the given props, event handlers
+     * (from the parent's `on*` props), and parent component (if any).
+     */
     constructor(props = {}, eventHandlers = {}, parentComponent = null) {
       this.props = props;
       this.state = state ? state(props) : {};
       this.#eventHandlers = eventHandlers;
       this.#parentComponent = parentComponent;
-    }
-
-    setExternalContent(children) {
-      this.#children = children;
     }
 
     updateState(newState) {
@@ -39,6 +40,9 @@ export function defineComponent({ render, state, onMounted = EMPTY_FUNCTION, onU
     }
 
     render() {
+      // Calls the user-defined render fn with `this` bound to the component
+      // instance, so it can read this.state/this.props and call public
+      // methods. If it used hSlot(), project this.#children into the slot(s).
       const vdom = render.call(this);
       if (didCreateSlot()) {
         fillSlots(vdom, this.#children);
@@ -48,6 +52,9 @@ export function defineComponent({ render, state, onMounted = EMPTY_FUNCTION, onU
       return vdom;
     }
 
+    /**
+     * Renders and mounts the component's DOM into `hostEl` at `index`.
+     */
     mount(hostEl, index = null) {
       if (this.#isMounted) {
         throw new Error("Component is already mounted");
@@ -59,6 +66,9 @@ export function defineComponent({ render, state, onMounted = EMPTY_FUNCTION, onU
       this.#isMounted = true;
     }
 
+    /**
+     * Removes the component's DOM and cleans up its event subscriptions.
+     */
     unmount() {
       if (!this.#isMounted) {
         throw new Error("Component is not mounted");
@@ -71,10 +81,13 @@ export function defineComponent({ render, state, onMounted = EMPTY_FUNCTION, onU
       this.#isMounted = false;
     }
 
+    // Lifecycle hooks below run the user-defined fn bound to `this` (same
+    // reason as render()), wrapped in Promise.resolve so callers can always
+    // await them whether the user's hook is sync or already async.
     onMounted() {
       return Promise.resolve(onMounted.call(this));
     }
-    
+
     onUnmounted() {
       return Promise.resolve(onUnmounted.call(this));
     }
@@ -87,6 +100,10 @@ export function defineComponent({ render, state, onMounted = EMPTY_FUNCTION, onU
       return Promise.resolve(onStateChange.call(this));
     }
 
+    /**
+     * Merges `props` into this.props (no-op if unchanged), re-renders, and
+     * notifies onPropsChange.
+     */
     updateProps(props) {
       const newProps = { ...this.props, ...props };
       if (equal(this.props, newProps)) {
@@ -98,12 +115,26 @@ export function defineComponent({ render, state, onMounted = EMPTY_FUNCTION, onU
       enqueueJob(() => this.onPropsChange(this.props, oldProps));
     }
 
+    /**
+     * Dispatches `eventName` to whoever is listening via this component's
+     * `on*` event handlers.
+     */
     emit(eventName, payload) {
       this.#dispatcher.dispatch(eventName, payload);
     }
 
+    /**
+     * Sets the shared app context, readable via the `appContext` getter.
+     */
     setAppContext(appContext) {
       this.#appContext = appContext;
+    }
+
+    /**
+     * Sets the child vdom nodes used to fill this component's slot(s).
+     */
+    setExternalContent(children) {
+      this.#children = children;
     }
 
     get appContext() {
@@ -134,25 +165,37 @@ export function defineComponent({ render, state, onMounted = EMPTY_FUNCTION, onU
       });
     }
 
+    /**
+     * All root DOM elements rendered by this component (flattened across
+     * fragments and nested components).
+     */
     get elements() {
       if (this.#vdom == null) {
         return [];
       }
       if (this.#vdom.type === DOM_TYPES.FRAGMENT) {
-        return extractChildNodes(this.#vdom).flatMap((child) => {
-          if (child.type === DOM_TYPES.COMPONENT) {
-            return child.component.elements;
-          }
-          return [child.el];
-        });
+        return this.#getFragmentElements();
       }
       return [this.#vdom.el];
+    }
+
+    #getFragmentElements() {
+      return extractChildNodes(this.#vdom).flatMap((child) => {
+        if (child.type === DOM_TYPES.COMPONENT) {
+          return child.component.elements;
+        }
+        return [child.el];
+      });
     }
 
     get firstElement() {
       return this.elements[0];
     }
 
+    /**
+     * Index of this component's first element among its host element's
+     * children. 0 unless the root vdom is a fragment.
+     */
     get offset() {
       if (this.#vdom.type === DOM_TYPES.FRAGMENT) {
         return Array.from(this.#hostEl.children).indexOf(this.firstElement);
@@ -161,12 +204,20 @@ export function defineComponent({ render, state, onMounted = EMPTY_FUNCTION, onU
     }
   }
 
-  for(const methodName in methods) {
-    if (hasOwnProperty(Component, methodName)) {
+  attachUserMethods(Component, methods);
+
+  return Component;
+}
+
+/**
+ * Adds the caller's extra methods (anything passed to defineComponent()
+ * besides render/state/lifecycle hooks) onto the component prototype.
+ */
+function attachUserMethods(Component, methods) {
+  for (const methodName in methods) {
+    if (hasOwnProperty(Component.prototype, methodName)) {
       throw new Error(`Method "${methodName}()" already exists in the component`);
     }
     Component.prototype[methodName] = methods[methodName];
   }
-
-  return Component;
 }
