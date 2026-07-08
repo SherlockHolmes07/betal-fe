@@ -1,3 +1,5 @@
+import { EMPTY_FUNCTION } from './constants.js';
+
 export class Dispatcher {
   #subs = new Map();
   #afterHandlers = [];
@@ -10,7 +12,7 @@ export class Dispatcher {
 
     const handlers = this.#subs.get(commandName);
     if (handlers.includes(handler)) {
-      return () => {};
+      return EMPTY_FUNCTION;
     }
     handlers.push(handler);
     // Return an unsubscribe function

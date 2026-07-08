@@ -7,10 +7,9 @@ import { hasOwnProperty } from './utils/objects.js';
 import { Dispatcher } from './dispatcher.js';
 import { enqueueJob } from './scheduler.js';
 import { fillSlots } from './slots.js'
+import { EMPTY_FUNCTION } from './constants.js';
 
-const emptyFunction = () => {};
-
-export function defineComponent({ render, state, onMounted = emptyFunction, onUnmounted = emptyFunction, onPropsChange = emptyFunction, onStateChange = emptyFunction, ...methods }) {
+export function defineComponent({ render, state, onMounted = EMPTY_FUNCTION, onUnmounted = EMPTY_FUNCTION, onPropsChange = EMPTY_FUNCTION, onStateChange = EMPTY_FUNCTION, ...methods }) {
   class Component {
     #vdom = null;
     #isMounted = false;
