@@ -41,7 +41,8 @@ export function createBetalApp(RootComponent, props = {}, options = {}) {
     parentEl = _parentEl;
     vdom = h(RootComponent, props);
     mountDOM(vdom, parentEl, null, { appContext: context });
-
+    // Initialize the router after the root component is mounted, 
+    // so that any route changes can trigger re-renders of the mounted components.
     context.router.init();
 
     isMounted = true;
