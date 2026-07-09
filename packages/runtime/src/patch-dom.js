@@ -1,5 +1,6 @@
 import { destroyDOM } from "./destroy-dom.js";
-import { DOM_TYPES, extractChildNodes } from "./h.js";
+import { DOM_TYPES } from "./h.js";
+import { extractChildNodes } from "./vdom-utils.js";
 import { mountDOM } from "./mount-dom.js";
 import { areNodesEqual } from "./nodes-equal.js";
 import {

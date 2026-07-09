@@ -15,6 +15,18 @@ export const DOM_TYPES = {
 let hSlotCalled = false;
 
 /**
+ * Converts raw string children into TEXT vnodes, leaving already-built
+ * vnodes untouched. Used by `h()` and `hFragment()` to normalize whatever
+ * children array a caller passed in.
+ *
+ * @param {Array<string|Object>} nodes - Children as authored — raw strings or vnodes.
+ * @returns {Array<Object>} The same nodes, with every string wrapped as a TEXT vnode.
+ */
+function convertTextNodes(nodes) {
+  return nodes.map((node) => (typeof node === "string" ? hString(node) : node));
+}
+
+/**
  * Create a virtual DOM node for an element or component.
  *
  * @param {string|Function} tag - HTML tag name (e.g., 'div') for elements, or component constructor for components.
@@ -31,17 +43,6 @@ export function h(tag, props = {}, children = []) {
     props,
     children: convertTextNodes(filterNulls(children)),
   };
-}
-
-/**
- * Convert string nodes to text VNodes while preserving existing VNode objects.
- *
- * @param {Array<string|Object>} nodes - Array of strings or virtual DOM nodes.
- * @returns {Array<Object>} Array of virtual DOM text nodes and preserved VNodes.
- * @private
- */
-function convertTextNodes(nodes) {
-  return nodes.map((node) => (typeof node === "string" ? hString(node) : node));
 }
 
 /**
@@ -94,27 +95,4 @@ export function resetDidCreateSlot() {
 export function hSlot(children = []) {
   hSlotCalled = true;
   return { type: DOM_TYPES.SLOT, children };
-}
-
-/**
- * Recursively extract all non-fragment child nodes from a virtual DOM tree.
- *
- * Flattens nested fragments to get a flat list of actual renderable nodes.
- *
- * @param {Object} vdom - Virtual DOM node to extract children from.
- * @returns {Array<Object>} Flat array of non-fragment virtual DOM nodes.
- */
-export function extractChildNodes(vdom) {
-  if (vdom.children == null) {
-    return [];
-  }
-  const children = [];
-  for (const child of vdom.children) {
-    if (child.type === DOM_TYPES.FRAGMENT) {
-      children.push(...extractChildNodes(child));
-    } else {
-      children.push(child);
-    }
-  }
-  return children;
 }
