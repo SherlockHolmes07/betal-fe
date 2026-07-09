@@ -1,38 +1,38 @@
 import { describe, it, expect } from 'vitest'
 import {
-  withoutNulls,
+  filterNulls,
   arraysDiff,
   arraysDiffSequence,
   ARRAY_DIFF_OP,
 } from '../../utils/arrays.js'
 
 // ---------------------------------------------------------------------------
-// withoutNulls
+// filterNulls
 // ---------------------------------------------------------------------------
 
-describe('withoutNulls', () => {
+describe('filterNulls', () => {
   it('removes null entries', () => {
-    expect(withoutNulls([1, null, 2])).toEqual([1, 2])
+    expect(filterNulls([1, null, 2])).toEqual([1, 2])
   })
 
   it('removes undefined entries', () => {
-    expect(withoutNulls([1, undefined, 2])).toEqual([1, 2])
+    expect(filterNulls([1, undefined, 2])).toEqual([1, 2])
   })
 
   it('keeps falsy values that are not null/undefined (0, false, empty string)', () => {
-    expect(withoutNulls([0, false, '', null])).toEqual([0, false, ''])
+    expect(filterNulls([0, false, '', null])).toEqual([0, false, ''])
   })
 
   it('returns an identical array when there is nothing to remove', () => {
-    expect(withoutNulls([1, 2, 3])).toEqual([1, 2, 3])
+    expect(filterNulls([1, 2, 3])).toEqual([1, 2, 3])
   })
 
   it('returns an empty array when every element is null or undefined', () => {
-    expect(withoutNulls([null, undefined, null])).toEqual([])
+    expect(filterNulls([null, undefined, null])).toEqual([])
   })
 
   it('returns an empty array unchanged', () => {
-    expect(withoutNulls([])).toEqual([])
+    expect(filterNulls([])).toEqual([])
   })
 })
 

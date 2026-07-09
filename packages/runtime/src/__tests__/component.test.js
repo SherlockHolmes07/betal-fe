@@ -50,10 +50,23 @@ describe('defineComponent', () => {
     expect(instance.greet()).toBe('hello')
   })
 
-  // Note: defineComponent checks hasOwnProperty(Component, methodName) which
-  // inspects the constructor function itself — NOT Component.prototype. Since
-  // built-in methods like `emit` live on the prototype, this guard does NOT
-  // detect those conflicts, so no test is written for that path.
+  it('throws when a custom method collides with a built-in instance method', () => {
+    expect(() => {
+      defineComponent({
+        render() { return h('div') },
+        emit() { return 'oops' },
+      })
+    }).toThrow('Method "emit()" already exists in the component')
+  })
+
+  it('throws when a custom method collides with mount()', () => {
+    expect(() => {
+      defineComponent({
+        render() { return h('div') },
+        mount() { return 'oops' },
+      })
+    }).toThrow('Method "mount()" already exists in the component')
+  })
 })
 
 // ---------------------------------------------------------------------------

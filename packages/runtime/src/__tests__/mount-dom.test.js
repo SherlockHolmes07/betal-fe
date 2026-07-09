@@ -90,6 +90,41 @@ describe('mountDOM — fragment nodes', () => {
 
     expect(frag.el).toBe(container)
   })
+
+  it('inserts fragment children at index 0, before existing children — not appended at the end', () => {
+    mountDOM(h('span', {}, ['existing-first-child']), container)
+
+    const frag = hFragment([h('p', {}, ['should be first'])])
+    mountDOM(frag, container, 0)
+
+    expect(Array.from(container.children).map((el) => el.textContent)).toEqual([
+      'should be first',
+      'existing-first-child',
+    ])
+  })
+
+  it('inserts fragment children at a non-zero index, between existing siblings', () => {
+    mountDOM(h('span', {}, ['A']), container)
+    mountDOM(h('span', {}, ['B']), container)
+
+    const frag = hFragment([h('p', {}, ['middle'])])
+    mountDOM(frag, container, 1)
+
+    expect(Array.from(container.children).map((el) => el.textContent)).toEqual(['A', 'middle', 'B'])
+  })
+
+  it('preserves the relative order of multiple fragment children at an explicit index', () => {
+    mountDOM(h('span', {}, ['A']), container)
+
+    const frag = hFragment([h('p', {}, ['first']), h('p', {}, ['second'])])
+    mountDOM(frag, container, 0)
+
+    expect(Array.from(container.children).map((el) => el.textContent)).toEqual([
+      'first',
+      'second',
+      'A',
+    ])
+  })
 })
 
 // ---------------------------------------------------------------------------

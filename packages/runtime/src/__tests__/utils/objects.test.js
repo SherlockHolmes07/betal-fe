@@ -50,6 +50,15 @@ describe('objectsDiff', () => {
     expect(updated).not.toContain('a')
     expect(updated).toContain('b')
   })
+
+  it('treats a key only present on Object.prototype (e.g. toString) as added, not updated', () => {
+    // oldObj has no OWN 'toString' key, only the inherited one from
+    // Object.prototype. A prototype-chain-walking check like the `in`
+    // operator would wrongly see it as already present.
+    const { added, updated } = objectsDiff({}, { toString: 'some-value' })
+    expect(added).toEqual(['toString'])
+    expect(updated).toEqual([])
+  })
 })
 
 // ---------------------------------------------------------------------------

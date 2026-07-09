@@ -1,3 +1,9 @@
+/**
+ * Apply an attrs object to a DOM element, handling `class` and `style` specially.
+ *
+ * @param {Element} el
+ * @param {Object} attrs
+ */
 export function setAttributes(el, attrs) {
   const { class: className, style, ...otherAttrs } = attrs;
 

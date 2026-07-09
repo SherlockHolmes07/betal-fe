@@ -41,6 +41,11 @@ describe('makeRouteMatcher — static routes', () => {
     const matcher = makeRouteMatcher({ path: '/home', component: () => {} })
     expect(matcher.isRedirect).toBe(false)
   })
+
+  it('still matches when the path has a trailing query string', () => {
+    const matcher = makeRouteMatcher({ path: '/about' })
+    expect(matcher.checkMatch('/about?ref=newsletter')).toBe(true)
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -87,6 +92,17 @@ describe('makeRouteMatcher — routes with dynamic params', () => {
   it('does not match a path with an extra trailing segment', () => {
     const matcher = makeRouteMatcher({ path: '/user/:id' })
     expect(matcher.checkMatch('/user/42/extra')).toBe(false)
+  })
+
+  it('still matches when the path has a trailing query string', () => {
+    const matcher = makeRouteMatcher({ path: '/user/:id' })
+    expect(matcher.checkMatch('/user/42?tab=profile')).toBe(true)
+  })
+
+  it('does not let a trailing query string leak into the extracted param value', () => {
+    const matcher = makeRouteMatcher({ path: '/user/:id' })
+    const params = matcher.extractParams('/user/42?tab=profile')
+    expect(params.id).toBe('42')
   })
 })
 

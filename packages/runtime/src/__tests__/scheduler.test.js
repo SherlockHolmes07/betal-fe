@@ -60,14 +60,43 @@ describe('enqueueJob', () => {
     const afterFailure = vi.fn()
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
-    // The scheduler wraps each job in Promise.resolve(), so async rejections
-    // are caught and logged. Synchronous throws propagate differently.
     enqueueJob(() => Promise.reject(new Error('async error')))
     enqueueJob(afterFailure)
 
     await nextTick()
 
     expect(afterFailure).toHaveBeenCalled()
+    errorSpy.mockRestore()
+  })
+
+  it('continues running subsequent jobs in the same flush even when one throws synchronously', async () => {
+    const afterFailure = vi.fn()
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    enqueueJob(() => { throw new Error('sync error') })
+    enqueueJob(afterFailure)
+
+    await nextTick()
+
+    expect(errorSpy).toHaveBeenCalled()
+    expect(afterFailure).toHaveBeenCalled()
+    errorSpy.mockRestore()
+  })
+
+  it('recovers for jobs enqueued in a later flush even after a previous job threw synchronously', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    enqueueJob(() => { throw new Error('sync error') })
+    await nextTick()
+
+    // A synchronous throw must not leave the scheduler permanently stuck —
+    // work enqueued afterwards, in a completely separate flush, still needs
+    // to run.
+    const later = vi.fn()
+    enqueueJob(later)
+    await nextTick()
+
+    expect(later).toHaveBeenCalled()
     errorSpy.mockRestore()
   })
 })
