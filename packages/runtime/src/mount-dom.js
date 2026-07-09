@@ -52,8 +52,12 @@ function createFragmentNode(vDom, parentElement, index, hostComponent) {
   const { children } = vDom;
   vDom.el = parentElement;
 
-  children.forEach((child) =>
-    mountDOM(child, parentElement, index ? index + 1 : null, hostComponent)
+  // Each child lands at `index` plus its own position within the fragment,
+  // so multiple children keep their relative order instead of all competing
+  // for the same slot (which would insert them in reverse). When `index` is
+  // null, every child is simply appended, in order.
+  children.forEach((child, offset) =>
+    mountDOM(child, parentElement, index == null ? null : index + offset, hostComponent)
   );
 }
 
