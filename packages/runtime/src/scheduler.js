@@ -21,22 +21,29 @@ function scheduleUpdate() {
 }
 
 /**
- * Run every queued job in order, draining the queue.
- * Jobs are executed synchronously; if a job returns a promise, its rejection
- * is caught and logged rather than left unhandled.
+ * Run every queued job in order, draining the queue. If a job returns a
+ * promise, its rejection is caught and logged; if a job throws
+ * synchronously, that's caught and logged too — either way, one bad job
+ * must not stop the rest of the queue from running, and must not leave
+ * `isScheduled` stuck at `true` (which would silently stop the scheduler
+ * from ever running anything again).
  */
 function processJobs() {
   while (jobs.length > 0) {
     const job = jobs.shift();
-    const result = job();
-    Promise.resolve(result).then(
-      () => {
-        // Job completed successfully
-      },
-      (error) => {
-        console.error(`[scheduler]: ${error}`);
-      }
-    );
+    try {
+      const result = job();
+      Promise.resolve(result).then(
+        () => {
+          // Job completed successfully
+        },
+        (error) => {
+          console.error(`[scheduler]: ${error}`);
+        }
+      );
+    } catch (error) {
+      console.error(`[scheduler]: ${error}`);
+    }
   }
 
   isScheduled = false;
