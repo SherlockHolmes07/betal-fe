@@ -1,18 +1,29 @@
 import { Dispatcher } from "./dispatcher.js";
 import { makeRouteMatcher } from "./route-matchers.js";
 import { assert } from "./utils/assert.js";
+import { hashHistoryStrategy, browserHistoryStrategy } from "./history-strategies.js";
 
 const ROUTER_EVENT = "router-event";
+const HISTORY_ACTION = Object.freeze({
+  NONE: "none",
+  PUSH: "push",
+  REPLACE: "replace",
+});
 
 /**
- * Hash-based (`#/path`) SPA router: matches `location.hash` against a list
- * of routes, exposes the current `matchedRoute`/`params`/`query`, and lets
- * components subscribe to navigation. Supports `:param` segments, a `*`
- * catch-all, string redirects, async `beforeEnter` guards, and configurable
- * scroll behavior. Always used through `appContext.router` (see app.js),
- * never constructed directly by components.
+ * Shared SPA router logic: matches the current URL against a list of
+ * routes, exposes `matchedRoute`/`params`/`query`, and lets components
+ * subscribe to navigation. Supports `:param` segments, a `*` catch-all,
+ * string redirects, async `beforeEnter` guards, and configurable scroll
+ * behavior.
+ *
+ * How the current path is read from the URL, and how a new one is written
+ * to it, is delegated entirely to a `HistoryStrategy` (see
+ * history-strategies.js) supplied by a subclass — everything else here is
+ * identical regardless of whether that's hash-based or real History API
+ * routing. Not exported: always used through `HashRouter`/`BrowserRouter`.
  */
-export class HashRouter {
+class Router {
   #isInitialized = false;
   #matchers = [];
   #matchedRoute = null;
@@ -20,6 +31,7 @@ export class HashRouter {
   #subscriptions = new WeakMap();
   #subscriberFns = new Set();
   #scrollBehavior = 'top';
+  #strategy;
 
   get matchedRoute() {
     return this.#matchedRoute;
@@ -34,25 +46,12 @@ export class HashRouter {
   get query() {
     return this.#query;
   }
+  #onPopStateListener = () => this.#syncStateToCurrentUrl();
 
-  // The hash-routed path, with the leading "#" stripped and "" normalized
-  // to "/" — i.e. what the rest of the router treats as "the current URL".
-  get #currentRouteHash() {
-    const hash = document.location.hash;
-
-    if (hash === "") {
-      return "/";
-    }
-
-    return hash.slice(1);
-  }
-
-  // Saved to a variable to be able to remove the event listener in the destroy() method.
-  #onPopState = () => this.#matchCurrentRoute();
-
-  constructor(routes = [], options = {}) {
+  constructor(routes = [], options = {}, strategy) {
     assert(Array.isArray(routes), "Routes must be an array");
     this.#matchers = routes.map(makeRouteMatcher);
+    this.#strategy = strategy;
 
     if (options.scrollBehavior !== undefined) {
       this.#scrollBehavior = options.scrollBehavior;
@@ -61,8 +60,7 @@ export class HashRouter {
 
   /**
    * Starts listening for browser back/forward navigation and resolves the
-   * route matching the page's current URL. Idempotent — a second call is a
-   * no-op. Called once by `createBetalApp(...).mount()`.
+   * route matching the page's current URL.
    *
    * @returns {Promise<void>}
    */
@@ -71,12 +69,10 @@ export class HashRouter {
       return;
     }
 
-    if (document.location.hash === "") {
-      window.history.replaceState({}, "", "#/");
-    }
+    this.#strategy.normalizeInitialUrl();
 
-    window.addEventListener("popstate", this.#onPopState);
-    await this.#matchCurrentRoute();
+    window.addEventListener("popstate", this.#onPopStateListener);
+    await this.#syncStateToCurrentUrl();
 
     this.#isInitialized = true;
   }
@@ -92,26 +88,24 @@ export class HashRouter {
       return;
     }
 
-    window.removeEventListener("popstate", this.#onPopState);
+    window.removeEventListener("popstate", this.#onPopStateListener);
     Array.from(this.#subscriberFns).forEach(this.unsubscribe, this);
     this.#isInitialized = false;
   }
 
   /**
-   * Navigates to `path`, e.g. `'/user/5?tab=profile#comments'` — without
-   * the router's own leading `#`. Redirects (a route's `redirect`, or a
-   * `beforeEnter` guard returning a string) are followed automatically,
-   * so callers never need to handle them.
+   * Navigates to an absolute app path and follows redirects automatically.
    *
-   * Resolves once navigation has either committed or been decided
-   * against — awaiting it does not guarantee the route actually changed:
-   * a `beforeEnter` guard can block it, and a path matching no route just
-   * logs a warning and leaves the current route as-is. Neither case throws.
-   *
-   * @param {string} path - The path to navigate to, without the leading `#`.
-   * @returns {Promise<void>}
+   * @param {string} path - The path to navigate to, e.g. `/about`.
+   * @returns {Promise<void>} Resolves when navigation finishes or is blocked.
    */
-  async navigateTo(path) {
+  navigateTo(path) {
+    return this.#navigate(path, HISTORY_ACTION.PUSH);
+  }
+
+  async #navigate(path, historyAction) {
+    assert(path.startsWith('/'), `Path must start with "/", got "${path}"`);
+
     const { pathWithoutHash, hash } = this.#splitOffAnchor(path);
     const matcher = this.#matchers.find((candidate) => candidate.checkMatch(pathWithoutHash));
 
@@ -121,24 +115,35 @@ export class HashRouter {
     }
 
     if (matcher.isRedirect) {
-      return this.navigateTo(matcher.route.redirect);
+      return this.#navigate(
+        matcher.route.redirect,
+        redirectHistoryAction(historyAction)
+      );
     }
 
-    const from = this.#matchedRoute;
-    const to = matcher.route;
+    const transition = {
+      matcher,
+      path,
+      pathWithoutHash,
+      hash,
+      from: this.#matchedRoute,
+      to: matcher.route,
+    };
     const { shouldNavigate, shouldRedirect, redirectPath } =
-      await this.#canChangeRoute(from, to);
+      await this.#canChangeRoute(transition.from, transition.to);
 
     if (shouldRedirect) {
-      return this.navigateTo(redirectPath);
+      return this.#navigate(
+        redirectPath,
+        redirectHistoryAction(historyAction)
+      );
     }
 
     if (shouldNavigate) {
-      this.#commitNavigation({ matcher, path, pathWithoutHash, from, to, hash });
+      this.#commitNavigation(transition, historyAction);
     }
   }
 
-  /** No route matched the path — reset to "nowhere," and say so. */
   #clearMatchedRoute(pathWithoutHash) {
     console.warn(`[Router] No route matches path "${pathWithoutHash}"`);
     this.#matchedRoute = null;
@@ -146,22 +151,32 @@ export class HashRouter {
     this.#query = {};
   }
 
-  /** Makes a matched, guard-approved navigation the current reality: updates route state, browser history, scroll position, and notifies subscribers. */
-  #commitNavigation({ matcher, path, pathWithoutHash, from, to, hash }) {
+  #commitNavigation(transition, historyAction) {
+    const { matcher, path, pathWithoutHash, from, to, hash } = transition;
+
     this.#matchedRoute = matcher.route;
     this.#params = matcher.extractParams(pathWithoutHash);
     this.#query = matcher.extractQuery(pathWithoutHash);
-    this.#pushState(path);
+    this.#updateHistory(path, historyAction);
     this.#handleScrollBehavior(from, to, hash);
 
     this.#dispatcher.dispatch(ROUTER_EVENT, { from, to, router: this });
   }
 
+  #updateHistory(path, historyAction) {
+    if (historyAction === HISTORY_ACTION.PUSH) {
+      this.#strategy.pushPath(path);
+    } else if (historyAction === HISTORY_ACTION.REPLACE) {
+      this.#strategy.replacePath(path);
+    }
+  }
+
   /**
    * Splits an in-page `#anchor` off the end of `path`, if present — e.g.
    * `'/docs#install'` → `{ pathWithoutHash: '/docs', hash: 'install' }`.
-   * Searches from index 1 so the route's own leading `#` (hash routing)
-   * is never mistaken for an anchor. Route matching and the eventual
+   * Searches from index 1 so a hash-routed path's own leading `#` is never
+   * mistaken for an anchor (moot for non-hash strategies, whose paths never
+   * start with `#` at all). Route matching and the eventual
    * scroll-to-anchor behavior each need one half of this split.
    */
   #splitOffAnchor(path) {
@@ -185,7 +200,6 @@ export class HashRouter {
     setTimeout(() => this.#applyScroll(from, to, hash), 0);
   }
 
-  /** Performs the actual scroll, once the new route's DOM is guaranteed to exist. */
   #applyScroll(from, to, hash) {
     if (typeof this.#scrollBehavior === 'function') {
       this.#scrollToCustomPosition(from, to, hash);
@@ -197,7 +211,6 @@ export class HashRouter {
     }
   }
 
-  /** Delegates to the caller-supplied `scrollBehavior` function and applies whatever position it returns, if any. */
   #scrollToCustomPosition(from, to, hash) {
     const position = this.#scrollBehavior(from, to, { hash });
     if (!position) {
@@ -211,7 +224,6 @@ export class HashRouter {
     });
   }
 
-  /** The default `'top'` behavior: scroll to the in-page anchor if one was given and exists, otherwise to the top of the page. */
   #scrollToTopOrAnchor(hash) {
     const element = hash && document.getElementById(hash);
     if (element) {
@@ -233,7 +245,7 @@ export class HashRouter {
   /**
    * Registers a handler to be called on every successful navigation.
    *
-   * @param {(event: {from: Object|null, to: Object, router: HashRouter}) => void} handler
+   * @param {(event: {from: Object|null, to: Object, router: Router}) => void} handler
    */
   subscribe(handler) {
     // Keep track of the unsubscribe function for later removal,
@@ -257,12 +269,23 @@ export class HashRouter {
     }
   }
 
-  #pushState(path) {
-    window.history.pushState({}, "", `#${path}`);
+  /**
+   * Formats `path` as a real `href` for a plain `<a>` tag (used by
+   * `RouterLink`), so right-click / open-in-new-tab / hover-preview work
+   * correctly regardless of which URL strategy is in use.
+   *
+   * @param {string} path
+   * @returns {string}
+   */
+  linkHref(path) {
+    return this.#strategy.linkHref(path);
   }
 
-  #matchCurrentRoute() {
-    return this.navigateTo(this.#currentRouteHash);
+  #syncStateToCurrentUrl() {
+    return this.#navigate(
+      this.#strategy.getCurrentPath(),
+      HISTORY_ACTION.NONE
+    );
   }
 
   /**
@@ -304,6 +327,37 @@ function redirectTo(redirectPath) {
   return { shouldRedirect: true, shouldNavigate: false, redirectPath };
 }
 
+function redirectHistoryAction(historyAction) {
+  return historyAction === HISTORY_ACTION.NONE
+    ? HISTORY_ACTION.REPLACE
+    : historyAction;
+}
+
+/**
+ * Hash-based SPA router (`#/path`). Works on static hosts without server rewrites.
+ *
+ * @param {Array} [routes=[]] Route definitions.
+ * @param {Object} [options={}] Router options.
+ */
+export class HashRouter extends Router {
+  constructor(routes = [], options = {}) {
+    super(routes, options, hashHistoryStrategy);
+  }
+}
+
+/**
+ * History API SPA router with clean paths (for example, `/user/42`).
+ * Requires a production SPA fallback and currently supports root-hosted apps only.
+ *
+ * @param {Array} [routes=[]] Route definitions.
+ * @param {Object} [options={}] Router options.
+ */
+export class BrowserRouter extends Router {
+  constructor(routes = [], options = {}) {
+    super(routes, options, browserHistoryStrategy);
+  }
+}
+
 /**
  * A router that does nothing — every method is a no-op. `createBetalApp`
  * uses this as the default `appContext.router` when no real router is
@@ -318,4 +372,7 @@ export class NoopRouter {
   forward() {}
   subscribe() {}
   unsubscribe() {}
+  linkHref(path) {
+    return path;
+  }
 }

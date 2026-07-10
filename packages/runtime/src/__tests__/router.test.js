@@ -154,6 +154,13 @@ describe('HashRouter — navigateTo()', () => {
     pushState.mockRestore()
     router.destroy()
   })
+
+  it('throws when the path does not start with "/"', async () => {
+    const router = await makeRouter()
+
+    await expect(router.navigateTo('about')).rejects.toThrow()
+    router.destroy()
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -453,5 +460,22 @@ describe('NoopRouter', () => {
     expect(() => router.forward()).not.toThrow()
     expect(() => router.subscribe(() => {})).not.toThrow()
     expect(() => router.unsubscribe(() => {})).not.toThrow()
+    expect(() => router.linkHref('/anywhere')).not.toThrow()
+  })
+
+  it('linkHref() returns the path unchanged', () => {
+    const router = new NoopRouter()
+    expect(router.linkHref('/about')).toBe('/about')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// linkHref()
+// ---------------------------------------------------------------------------
+
+describe('HashRouter — linkHref()', () => {
+  it('formats a path with the "#" prefix', () => {
+    const router = new HashRouter([])
+    expect(router.linkHref('/about')).toBe('#/about')
   })
 })

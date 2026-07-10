@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { RouterLink, RouterOutlet } from '../router-components.js'
 import { h } from '../h.js'
-import { HashRouter } from '../router.js'
+import { HashRouter, NoopRouter } from '../router.js'
 import { defineComponent } from '../component.js'
 import { mountDOM } from '../mount-dom.js'
 import { destroyDOM } from '../destroy-dom.js'
@@ -24,6 +24,19 @@ function makeAppContext(router) {
   return { router }
 }
 
+// A fake router with just enough surface for RouterLink: navigateTo() to
+// spy on, and linkHref() since render() now calls it unconditionally to
+// build the anchor's href. Defaults linkHref to the hash-style "#<to>"
+// (matching HashRouter) so existing tests don't need to care about it
+// unless they're specifically testing linkHref itself.
+function makeFakeRouter(overrides = {}) {
+  return {
+    navigateTo: vi.fn(),
+    linkHref: vi.fn((to) => `#${to}`),
+    ...overrides,
+  }
+}
+
 /**
  * Mounts a component through mountDOM so lifecycle hooks such as onMounted
  * are properly enqueued. RouterOutlet subscribes to the router inside its
@@ -42,21 +55,39 @@ function mountWithContext(ComponentClass, props = {}, appContext = {}, children 
 
 describe('RouterLink', () => {
   it('renders an anchor tag', () => {
-    const router = { navigateTo: vi.fn() }
+    const router = makeFakeRouter()
     mountWithContext(RouterLink, { to: '/about' }, makeAppContext(router))
 
     expect(container.querySelector('a')).not.toBeNull()
   })
 
   it('sets the href to "#<to>" so right-click → open in new tab works', () => {
-    const router = { navigateTo: vi.fn() }
+    const router = makeFakeRouter()
     mountWithContext(RouterLink, { to: '/about' }, makeAppContext(router))
 
     expect(container.querySelector('a').getAttribute('href')).toBe('#/about')
   })
 
+  it('formats the href via router.linkHref(), not a hardcoded "#" — e.g. bare path under BrowserRouter', () => {
+    const router = makeFakeRouter({ linkHref: (to) => to })
+    mountWithContext(RouterLink, { to: '/about' }, makeAppContext(router))
+
+    expect(container.querySelector('a').getAttribute('href')).toBe('/about')
+  })
+
+  it('renders correctly and never throws when the app has no real router configured (NoopRouter)', () => {
+    // Not just a fake mock this time — the actual class createBetalApp falls
+    // back to when no router option is passed, so linkHref() and click both
+    // need to work against the real thing, not just an object shaped like it.
+    mountWithContext(RouterLink, { to: '/about' }, makeAppContext(new NoopRouter()))
+
+    const anchor = container.querySelector('a')
+    expect(anchor.getAttribute('href')).toBe('/about')
+    expect(() => anchor.click()).not.toThrow()
+  })
+
   it('calls router.navigateTo with the "to" path when the link is clicked', () => {
-    const router = { navigateTo: vi.fn() }
+    const router = makeFakeRouter()
     mountWithContext(RouterLink, { to: '/contact' }, makeAppContext(router))
 
     container.querySelector('a').click()
@@ -65,7 +96,7 @@ describe('RouterLink', () => {
   })
 
   it('prevents the default anchor navigation so there is no full-page reload', () => {
-    const router = { navigateTo: vi.fn() }
+    const router = makeFakeRouter()
     mountWithContext(RouterLink, { to: '/' }, makeAppContext(router))
 
     const event = new MouseEvent('click', { bubbles: true, cancelable: true })
@@ -75,7 +106,7 @@ describe('RouterLink', () => {
   })
 
   it('forwards additional props (class, id, etc.) to the anchor element', () => {
-    const router = { navigateTo: vi.fn() }
+    const router = makeFakeRouter()
     mountWithContext(RouterLink, { to: '/', class: 'nav-link', id: 'home-link' }, makeAppContext(router))
 
     const anchor = container.querySelector('a')
@@ -84,7 +115,7 @@ describe('RouterLink', () => {
   })
 
   it('renders slot content (children) inside the anchor', () => {
-    const router = { navigateTo: vi.fn() }
+    const router = makeFakeRouter()
     mountWithContext(
       RouterLink,
       { to: '/' },
@@ -98,7 +129,7 @@ describe('RouterLink', () => {
   it('forwards the full "to" value (including hash fragment) to navigateTo', () => {
     // The router itself is responsible for parsing the hash fragment;
     // RouterLink's job is to pass the path through unchanged.
-    const router = { navigateTo: vi.fn() }
+    const router = makeFakeRouter()
     mountWithContext(RouterLink, { to: '/about#section' }, makeAppContext(router))
 
     container.querySelector('a').click()
