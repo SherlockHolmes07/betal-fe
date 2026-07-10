@@ -364,6 +364,52 @@ describe('slot support', () => {
 })
 
 // ---------------------------------------------------------------------------
+// setExternalContent()
+// ---------------------------------------------------------------------------
+
+describe('setExternalContent()', () => {
+  it('re-renders immediately when content changes on an already-mounted component', () => {
+    const renderFn = vi.fn(() => h('div', {}, [hSlot()]))
+    const Card = defineComponent({ render: renderFn })
+
+    const instance = new Card()
+    instance.setExternalContent([h('p', { id: 'v1' })])
+    instance.mount(container)
+    const callsAfterMount = renderFn.mock.calls.length
+
+    instance.setExternalContent([h('p', { id: 'v2' })])
+
+    expect(renderFn.mock.calls.length).toBe(callsAfterMount + 1)
+    expect(container.querySelector('#v2')).not.toBeNull()
+    expect(container.querySelector('#v1')).toBeNull()
+  })
+
+  it('re-renders on every call while mounted, even if the content is the same array reference', () => {
+    // No change-detection, by design (see setExternalContent's docstring) —
+    // it always patches once mounted, same as updateState.
+    const renderFn = vi.fn(() => h('div', {}, [hSlot()]))
+    const Card = defineComponent({ render: renderFn })
+
+    const content = [h('p', { id: 'v1' })]
+    const instance = new Card()
+    instance.setExternalContent(content)
+    instance.mount(container)
+    const callsAfterMount = renderFn.mock.calls.length
+
+    instance.setExternalContent(content)
+
+    expect(renderFn.mock.calls.length).toBe(callsAfterMount + 1)
+  })
+
+  it('does not throw when called before the component is mounted', () => {
+    const Card = defineComponent({ render() { return h('div', {}, [hSlot()]) } })
+    const instance = new Card()
+
+    expect(() => instance.setExternalContent([h('p')])).not.toThrow()
+  })
+})
+
+// ---------------------------------------------------------------------------
 // App context
 // ---------------------------------------------------------------------------
 
