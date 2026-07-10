@@ -153,16 +153,17 @@ hFragment([
 ]);
 ```
 
-#### `hSlot(defaultContent)`
+#### `hSlot(nameOrDefaultContent, defaultContent)`
 
-Creates a slot for content projection.
+Creates a slot for content projection. A component can declare a single unnamed slot, or several independently named slots.
 
 ```javascript
+// Single (default) slot — unchanged from before
 const Card = defineComponent({
   render() {
     return h("div", { class: "card" }, [
       h("h3", {}, [this.props.title]),
-      hSlot([h("p", {}, ["Default content"])])
+      hSlot([h("p", {}, ["Default content"])]) // hSlot(defaultContent)
     ]);
   }
 });
@@ -171,6 +172,26 @@ const Card = defineComponent({
 h(Card, { title: "My Card" }, [
   h("p", {}, ["Custom content!"])
 ]);
+```
+
+```javascript
+// Multiple named slots
+const Card = defineComponent({
+  render() {
+    return h("div", { class: "card" }, [
+      h("header", {}, [hSlot("header", [h("h3", {}, [this.props.title])])]),
+      h("main", {}, [hSlot()]), // the unnamed slot is always "default"
+      h("footer", {}, [hSlot("footer")])
+    ]);
+  }
+});
+
+// Usage — target each named slot with a plain object instead of an array
+h(Card, { title: "My Card" }, {
+  header: [h("h2", {}, ["Custom Title"])],
+  default: [h("p", {}, ["Body content"])],
+  footer: [h("button", {}, ["OK"])]
+});
 ```
 
 ### Component Instance Methods
