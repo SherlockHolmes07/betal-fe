@@ -3,6 +3,7 @@ import Header from "./components/header.js";
 import Stats from "./components/stats.js";
 import TodosSection from "./components/todos-section.js";
 import Footer from "./components/footer.js";
+import { Card } from "./components/card.js";
 import { DEFAULT_TODOS } from "./constants/ui.js";
 
 const STORAGE_KEY = "betal-todos";
@@ -111,11 +112,23 @@ const App = defineComponent({
         }),
 
         h("main", { class: "max-w-6xl mx-auto px-4 py-8" }, [
-          h(Stats, {
-            totalTodos,
-            completedTodos,
-            activeTodos,
-            completionRate,
+          // Card exposes three named slots (header/default/footer). Here we
+          // only supply "default" and "footer" — "header" is left unset, so
+          // it falls back to Card's own default content built from `title`.
+          h(Card, { title: "Your Progress" }, {
+            default: [
+              h(Stats, {
+                totalTodos,
+                completedTodos,
+                activeTodos,
+                completionRate,
+              }),
+            ],
+            footer: [
+              h("p", { style: { fontSize: "0.875rem", color: "#888" } }, [
+                `${completionRate}% of tasks complete`,
+              ]),
+            ],
           }),
 
           h(TodosSection, {
