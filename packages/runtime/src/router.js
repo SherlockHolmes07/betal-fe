@@ -46,9 +46,7 @@ class Router {
   get query() {
     return this.#query;
   }
-
-  // Saved to a variable to be able to remove the event listener in the destroy() method.
-  #onPopState = () => this.#matchCurrentRoute();
+  #onPopStateListener = () => this.#syncStateToCurrentUrl();
 
   constructor(routes = [], options = {}, strategy) {
     assert(Array.isArray(routes), "Routes must be an array");
@@ -62,8 +60,7 @@ class Router {
 
   /**
    * Starts listening for browser back/forward navigation and resolves the
-   * route matching the page's current URL. Idempotent — a second call is a
-   * no-op. Called once by `createBetalApp(...).mount()`.
+   * route matching the page's current URL.
    *
    * @returns {Promise<void>}
    */
@@ -74,8 +71,8 @@ class Router {
 
     this.#strategy.normalizeInitialUrl();
 
-    window.addEventListener("popstate", this.#onPopState);
-    await this.#matchCurrentRoute();
+    window.addEventListener("popstate", this.#onPopStateListener);
+    await this.#syncStateToCurrentUrl();
 
     this.#isInitialized = true;
   }
@@ -91,7 +88,7 @@ class Router {
       return;
     }
 
-    window.removeEventListener("popstate", this.#onPopState);
+    window.removeEventListener("popstate", this.#onPopStateListener);
     Array.from(this.#subscriberFns).forEach(this.unsubscribe, this);
     this.#isInitialized = false;
   }
@@ -147,7 +144,6 @@ class Router {
     }
   }
 
-  /** No route matched the path — reset to "nowhere," and say so. */
   #clearMatchedRoute(pathWithoutHash) {
     console.warn(`[Router] No route matches path "${pathWithoutHash}"`);
     this.#matchedRoute = null;
@@ -155,7 +151,6 @@ class Router {
     this.#query = {};
   }
 
-  /** Commits a matched, guard-approved transition. */
   #commitNavigation(transition, historyAction) {
     const { matcher, path, pathWithoutHash, from, to, hash } = transition;
 
@@ -205,7 +200,6 @@ class Router {
     setTimeout(() => this.#applyScroll(from, to, hash), 0);
   }
 
-  /** Performs the actual scroll, once the new route's DOM is guaranteed to exist. */
   #applyScroll(from, to, hash) {
     if (typeof this.#scrollBehavior === 'function') {
       this.#scrollToCustomPosition(from, to, hash);
@@ -217,7 +211,6 @@ class Router {
     }
   }
 
-  /** Delegates to the caller-supplied `scrollBehavior` function and applies whatever position it returns, if any. */
   #scrollToCustomPosition(from, to, hash) {
     const position = this.#scrollBehavior(from, to, { hash });
     if (!position) {
@@ -231,7 +224,6 @@ class Router {
     });
   }
 
-  /** The default `'top'` behavior: scroll to the in-page anchor if one was given and exists, otherwise to the top of the page. */
   #scrollToTopOrAnchor(hash) {
     const element = hash && document.getElementById(hash);
     if (element) {
@@ -289,8 +281,7 @@ class Router {
     return this.#strategy.linkHref(path);
   }
 
-  // Syncs router state to a URL the browser has already loaded.
-  #matchCurrentRoute() {
+  #syncStateToCurrentUrl() {
     return this.#navigate(
       this.#strategy.getCurrentPath(),
       HISTORY_ACTION.NONE
