@@ -11,7 +11,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "betal-fe": "^4.0.1"
+    "betal-fe": "^4.5.0"
   },
   "devDependencies": {
     "vite": "^7.2.4"
