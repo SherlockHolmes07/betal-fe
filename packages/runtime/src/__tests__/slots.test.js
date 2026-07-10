@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
-import { fillSlots } from '../slots.js'
+import { describe, it, expect, vi, afterEach } from 'vitest'
+import { fillSlots, containsSlot } from '../slots.js'
 import { h, hFragment, hSlot, DOM_TYPES } from '../h.js'
 
 // fillSlots mutates the vdom tree in-place, replacing SLOT nodes with a
@@ -72,5 +72,88 @@ describe('fillSlots', () => {
   it('handles an empty vdom tree without throwing', () => {
     const template = h('div')
     expect(() => fillSlots(template, [])).not.toThrow()
+  })
+
+  it('routes each named slot to its matching external content, given as an object', () => {
+    const header = h('h2', {}, ['Title'])
+    const footer = h('button', {}, ['OK'])
+    const template = h('div', {}, [hSlot('header'), hSlot('footer')])
+
+    fillSlots(template, { header: [header], footer: [footer] })
+
+    expect(template.children[0].children[0]).toBe(header)
+    expect(template.children[1].children[0]).toBe(footer)
+  })
+
+  it('mixes the default slot with named slots in one external-content object', () => {
+    const body = h('p', {}, ['Body'])
+    const footer = h('button', {}, ['OK'])
+    const template = h('div', {}, [hSlot(), hSlot('footer')])
+
+    fillSlots(template, { default: [body], footer: [footer] })
+
+    expect(template.children[0].children[0]).toBe(body)
+    expect(template.children[1].children[0]).toBe(footer)
+  })
+
+  it('falls back to a named slot\'s own default content when the parent supplies nothing for it', () => {
+    const fallback = h('h2', {}, ['Fallback title'])
+    const template = h('div', {}, [hSlot('header', [fallback])])
+
+    fillSlots(template, { footer: [h('button')] })
+
+    expect(template.children[0].children[0]).toBe(fallback)
+  })
+
+  describe('unknown slot name warning', () => {
+    afterEach(() => {
+      vi.restoreAllMocks()
+    })
+
+    it('warns when external content is given for a slot name the template never declares', () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      const template = h('div', {}, [hSlot('header')])
+
+      fillSlots(template, { header: [h('h2')], typo: [h('p')] })
+
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('typo'))
+    })
+
+    it('does not warn when every supplied slot name matches a declared slot', () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      const template = h('div', {}, [hSlot('header')])
+
+      fillSlots(template, { header: [h('h2')] })
+
+      expect(warn).not.toHaveBeenCalled()
+    })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// containsSlot
+// ---------------------------------------------------------------------------
+
+describe('containsSlot', () => {
+  it('returns true when the vdom itself is a slot node', () => {
+    expect(containsSlot(hSlot())).toBe(true)
+  })
+
+  it('returns true when a slot is nested inside elements/fragments', () => {
+    const template = h('div', {}, [hFragment([h('p', {}, [hSlot()])])])
+    expect(containsSlot(template)).toBe(true)
+  })
+
+  it('returns false when there is no slot anywhere in the tree', () => {
+    const template = h('div', {}, [h('p', {}, ['just text'])])
+    expect(containsSlot(template)).toBe(false)
+  })
+
+  it('returns false for a slot nested inside a child component (not this component\'s own slot)', () => {
+    const ComponentA = () => {}
+    const componentVnode = h(ComponentA, {}, [hSlot()])
+    const template = h('div', {}, [componentVnode])
+
+    expect(containsSlot(template)).toBe(false)
   })
 })

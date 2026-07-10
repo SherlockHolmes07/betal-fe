@@ -337,6 +337,30 @@ describe('slot support', () => {
 
     expect(container.querySelector('#default')).not.toBeNull()
   })
+
+  it('renders multiple named slots into their matching locations', () => {
+    const Card = defineComponent({
+      render() {
+        return h('div', { class: 'card' }, [
+          h('header', {}, [hSlot('header')]),
+          h('main', {}, [hSlot()]),
+          h('footer', {}, [hSlot('footer')]),
+        ])
+      },
+    })
+
+    const CardInstance = new Card()
+    CardInstance.setExternalContent({
+      header: [h('h2', { id: 'header' }, ['Title'])],
+      default: [h('p', { id: 'body' }, ['Body'])],
+      footer: [h('button', { id: 'footer' }, ['OK'])],
+    })
+    CardInstance.mount(container)
+
+    expect(container.querySelector('header #header')).not.toBeNull()
+    expect(container.querySelector('main #body')).not.toBeNull()
+    expect(container.querySelector('footer #footer')).not.toBeNull()
+  })
 })
 
 // ---------------------------------------------------------------------------

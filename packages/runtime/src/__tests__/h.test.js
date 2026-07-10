@@ -1,11 +1,9 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import {
   h,
   hString,
   hFragment,
   hSlot,
-  didCreateSlot,
-  resetDidCreateSlot,
   DOM_TYPES,
 } from '../h.js'
 
@@ -86,6 +84,28 @@ describe('h', () => {
 
     expect(vnode.children).toEqual([])
   })
+
+  it('throws when an element is given object-shaped (named-slot) children', () => {
+    expect(() => h('div', {}, { header: [h('span')] })).toThrow()
+  })
+
+  it('normalizes each named slot array on a component vnode', () => {
+    const MyComponent = () => {}
+    const vnode = h(MyComponent, {}, {
+      header: ['Title'],
+      default: [h('p', {}, ['Body'])],
+    })
+
+    expect(vnode.children.header[0]).toEqual({ type: DOM_TYPES.TEXT, value: 'Title' })
+    expect(vnode.children.default[0].tag).toBe('p')
+  })
+
+  it('filters null/undefined out of each named slot array on a component vnode', () => {
+    const MyComponent = () => {}
+    const vnode = h(MyComponent, {}, { header: [null, h('span'), undefined] })
+
+    expect(vnode.children.header).toHaveLength(1)
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -131,65 +151,44 @@ describe('hFragment', () => {
 })
 
 // ---------------------------------------------------------------------------
-// hSlot + didCreateSlot + resetDidCreateSlot
+// hSlot
 // ---------------------------------------------------------------------------
 
 describe('hSlot', () => {
-  beforeEach(() => {
-    resetDidCreateSlot()
-  })
-
   it('creates a slot vnode', () => {
     const vnode = hSlot()
 
     expect(vnode.type).toBe(DOM_TYPES.SLOT)
   })
 
-  it('stores the default children on the slot', () => {
-    const defaultContent = [h('p', {}, ['default'])]
-    const vnode = hSlot(defaultContent)
-
-    expect(vnode.children).toBe(defaultContent)
-  })
-
-  it('defaults children to an empty array when none are provided', () => {
+  it('defaults to the "default" slot name when called with no args', () => {
     const vnode = hSlot()
 
+    expect(vnode.name).toBe('default')
     expect(vnode.children).toEqual([])
   })
 
-  it('sets the didCreateSlot flag to true when called', () => {
-    expect(didCreateSlot()).toBe(false)
+  it('legacy form: an array argument sets default content on the "default" slot', () => {
+    const defaultContent = [h('p', {}, ['default'])]
+    const vnode = hSlot(defaultContent)
 
-    hSlot()
-
-    expect(didCreateSlot()).toBe(true)
-  })
-})
-
-describe('didCreateSlot', () => {
-  beforeEach(() => {
-    resetDidCreateSlot()
+    expect(vnode.name).toBe('default')
+    expect(vnode.children).toBe(defaultContent)
   })
 
-  it('returns false before any hSlot() call in the current render cycle', () => {
-    expect(didCreateSlot()).toBe(false)
+  it('name-only form: a string argument names the slot with no default content', () => {
+    const vnode = hSlot('header')
+
+    expect(vnode.name).toBe('header')
+    expect(vnode.children).toEqual([])
   })
 
-  it('returns true after hSlot() has been called', () => {
-    hSlot()
-    expect(didCreateSlot()).toBe(true)
-  })
-})
+  it('name+fallback form: names the slot and sets its default content', () => {
+    const fallback = [h('h2', {}, ['Fallback'])]
+    const vnode = hSlot('header', fallback)
 
-describe('resetDidCreateSlot', () => {
-  it('clears the slot flag so the next render cycle starts clean', () => {
-    hSlot()
-    expect(didCreateSlot()).toBe(true)
-
-    resetDidCreateSlot()
-
-    expect(didCreateSlot()).toBe(false)
+    expect(vnode.name).toBe('header')
+    expect(vnode.children).toBe(fallback)
   })
 })
 

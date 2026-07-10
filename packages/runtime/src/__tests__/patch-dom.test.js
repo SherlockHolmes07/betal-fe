@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { patchDOM } from '../patch-dom.js'
 import { mountDOM } from '../mount-dom.js'
-import { h, hString, hFragment } from '../h.js'
+import { h, hString, hFragment, hSlot } from '../h.js'
 import { defineComponent } from '../component.js'
 import { nextTick } from '../scheduler.js'
 
@@ -260,6 +260,54 @@ describe('patchDOM — component patching', () => {
 
     expect(container.querySelector('#old-comp')).toBeNull()
     expect(container.querySelector('#new-comp')).not.toBeNull()
+  })
+
+  it('updates named slot content on patch, without corrupting the DOM (props also change)', async () => {
+    const Card = defineComponent({
+      render() {
+        return h('div', {}, [
+          h('div', { class: 'header' }, [hSlot('header', [h('span', {}, ['fallback'])])]),
+          h('div', { class: 'footer' }, [hSlot('footer', [h('span', {}, ['fallback'])])]),
+        ])
+      },
+    })
+
+    const oldVnode = mount(
+      h(Card, { id: 1 }, { header: [h('h2', {}, ['Header v1'])] }),
+      container
+    )
+    await nextTick()
+    expect(container.querySelector('.header').textContent).toBe('Header v1')
+
+    patchDOM(
+      oldVnode,
+      h(Card, { id: 2 }, { header: [h('h2', {}, ['Header v2'])], footer: [h('button', {}, ['OK'])] }),
+      container
+    )
+    await nextTick()
+
+    expect(container.querySelector('.header').textContent).toBe('Header v2')
+    expect(container.querySelector('.footer').textContent).toBe('OK')
+    // Nothing should have been mounted directly under the component's own
+    // root as a stray sibling of its two rendered divs.
+    expect(container.querySelector('div').children).toHaveLength(2)
+  })
+
+  it('updates slot content on patch even when props stay identical', async () => {
+    const Card = defineComponent({
+      render() {
+        return h('div', { class: 'body' }, [hSlot([h('span', {}, ['fallback'])])])
+      },
+    })
+
+    const oldVnode = mount(h(Card, {}, [h('p', {}, ['Body v1'])]), container)
+    await nextTick()
+    expect(container.querySelector('.body').textContent).toBe('Body v1')
+
+    patchDOM(oldVnode, h(Card, {}, [h('p', {}, ['Body v2'])]), container)
+    await nextTick()
+
+    expect(container.querySelector('.body').textContent).toBe('Body v2')
   })
 })
 
