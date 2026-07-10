@@ -309,6 +309,40 @@ describe('patchDOM — component patching', () => {
 
     expect(container.querySelector('.body').textContent).toBe('Body v2')
   })
+
+  it('correctly fills a slot that only starts existing after a prop change introduces it', async () => {
+    const Expandable = defineComponent({
+      render() {
+        if (!this.props.expanded) {
+          return h('div', { class: 'collapsed' }, ['(collapsed)'])
+        }
+        return h('div', { class: 'expanded' }, [hSlot()])
+      },
+    })
+
+    let vnode = mount(h(Expandable, { expanded: false }), container)
+    await nextTick()
+    expect(container.querySelector('.collapsed')).not.toBeNull()
+
+    // Same patch both flips the prop (introducing the slot for the first
+    // time) and supplies content for it.
+    vnode = patchDOM(
+      vnode,
+      h(Expandable, { expanded: true }, [h('p', {}, ['Revealed'])]),
+      container
+    )
+    await nextTick()
+    expect(container.querySelector('.expanded p').textContent).toBe('Revealed')
+
+    // Collapsing and re-expanding (with no content this time) should still
+    // work — #hasSlot must correctly flip false -> true -> false -> true.
+    vnode = patchDOM(vnode, h(Expandable, { expanded: false }), container)
+    await nextTick()
+    patchDOM(vnode, h(Expandable, { expanded: true }), container)
+    await nextTick()
+    expect(container.querySelector('.expanded')).not.toBeNull()
+    expect(container.querySelector('.expanded p')).toBeNull()
+  })
 })
 
 // ---------------------------------------------------------------------------
