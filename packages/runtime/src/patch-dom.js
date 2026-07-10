@@ -64,6 +64,11 @@ function patchNode(oldVdom, newVdom, hostComponent) {
     }
     case DOM_TYPES.ELEMENT: {
       patchElement(oldVdom, newVdom, hostComponent);
+      patchChildren(oldVdom, newVdom, hostComponent);
+      break;
+    }
+    case DOM_TYPES.FRAGMENT: {
+      patchChildren(oldVdom, newVdom, hostComponent);
       break;
     }
     case DOM_TYPES.COMPONENT: {
@@ -71,8 +76,6 @@ function patchNode(oldVdom, newVdom, hostComponent) {
       break;
     }
   }
-
-  patchChildren(oldVdom, newVdom, hostComponent);
 
   return newVdom;
 }

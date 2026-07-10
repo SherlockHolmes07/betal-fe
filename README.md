@@ -128,21 +128,26 @@ const MyComponent = defineComponent({
 
 ### Slots
 
+Components can expose a single default slot, or several independently named slots.
+
 ```javascript
-// Child component with slot
+// Child component with named slots
 const Card = defineComponent({
   render() {
     return h("div", { class: "card" }, [
-      h("h3", {}, [this.props.title]),
-      hSlot([h("p", {}, ["Default content"])]), // Slot with default
+      h("header", {}, [hSlot("header", [h("h3", {}, [this.props.title])])]),
+      h("main", {}, [hSlot()]), // unnamed slot is always "default"
+      h("footer", {}, [hSlot("footer")]),
     ]);
   }
 });
 
-// Parent provides content
-h(Card, { title: "My Card" }, [
-  h("p", {}, ["Custom content!"]) // Replaces slot
-]);
+// Parent targets each named slot with a plain object
+h(Card, { title: "My Card" }, {
+  header: [h("h2", {}, ["Custom Title"])],
+  default: [h("p", {}, ["Custom content!"])],
+  footer: [h("button", {}, ["OK"])],
+});
 ```
 
 ### Routing

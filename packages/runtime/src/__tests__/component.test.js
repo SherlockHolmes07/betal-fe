@@ -337,6 +337,130 @@ describe('slot support', () => {
 
     expect(container.querySelector('#default')).not.toBeNull()
   })
+
+  it('renders multiple named slots into their matching locations', () => {
+    const Card = defineComponent({
+      render() {
+        return h('div', { class: 'card' }, [
+          h('header', {}, [hSlot('header')]),
+          h('main', {}, [hSlot()]),
+          h('footer', {}, [hSlot('footer')]),
+        ])
+      },
+    })
+
+    const CardInstance = new Card()
+    CardInstance.setExternalContent({
+      header: [h('h2', { id: 'header' }, ['Title'])],
+      default: [h('p', { id: 'body' }, ['Body'])],
+      footer: [h('button', { id: 'footer' }, ['OK'])],
+    })
+    CardInstance.mount(container)
+
+    expect(container.querySelector('header #header')).not.toBeNull()
+    expect(container.querySelector('main #body')).not.toBeNull()
+    expect(container.querySelector('footer #footer')).not.toBeNull()
+  })
+
+  it('warns through the real component lifecycle when the parent targets a slot name that does not exist', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    const Card = defineComponent({
+      render() {
+        return h('div', {}, [hSlot('header')])
+      },
+    })
+
+    const CardInstance = new Card()
+    CardInstance.setExternalContent({ haeder: [h('h2', {}, ['typo'])] }) // typo'd slot name
+    CardInstance.mount(container)
+
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('haeder'))
+    warn.mockRestore()
+  })
+
+  it('fills two slots that share the same name with the same content', () => {
+    const Card = defineComponent({
+      render() {
+        return h('div', {}, [
+          h('div', { class: 'a' }, [hSlot('shared')]),
+          h('div', { class: 'b' }, [hSlot('shared')]),
+        ])
+      },
+    })
+
+    const CardInstance = new Card()
+    CardInstance.setExternalContent({ shared: [h('span', {}, ['dup'])] })
+    CardInstance.mount(container)
+
+    expect(container.querySelector('.a span').textContent).toBe('dup')
+    expect(container.querySelector('.b span').textContent).toBe('dup')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// setExternalContent()
+// ---------------------------------------------------------------------------
+
+describe('setExternalContent()', () => {
+  it('re-renders immediately when content changes on an already-mounted component', () => {
+    const renderFn = vi.fn(() => h('div', {}, [hSlot()]))
+    const Card = defineComponent({ render: renderFn })
+
+    const instance = new Card()
+    instance.setExternalContent([h('p', { id: 'v1' })])
+    instance.mount(container)
+    const callsAfterMount = renderFn.mock.calls.length
+
+    instance.setExternalContent([h('p', { id: 'v2' })])
+
+    expect(renderFn.mock.calls.length).toBe(callsAfterMount + 1)
+    expect(container.querySelector('#v2')).not.toBeNull()
+    expect(container.querySelector('#v1')).toBeNull()
+  })
+
+  it('re-renders on every call while mounted, even if the content is the same array reference', () => {
+    // No change-detection, by design (see setExternalContent's docstring) —
+    // it always patches once mounted, same as updateState.
+    const renderFn = vi.fn(() => h('div', {}, [hSlot()]))
+    const Card = defineComponent({ render: renderFn })
+
+    const content = [h('p', { id: 'v1' })]
+    const instance = new Card()
+    instance.setExternalContent(content)
+    instance.mount(container)
+    const callsAfterMount = renderFn.mock.calls.length
+
+    instance.setExternalContent(content)
+
+    expect(renderFn.mock.calls.length).toBe(callsAfterMount + 1)
+  })
+
+  it('does not re-render a component that never uses hSlot() at all', () => {
+    // setExternalContent() is called on every patch of every component,
+    // slotted or not (see patchComponent in patch-dom.js) — a component
+    // that never renders a slot has nowhere for this content to go, so
+    // patching it here would be a pure, pointless re-render on every single
+    // parent update, forever. This is what #hasSlot guards against.
+    const renderFn = vi.fn(() => h('footer', {}, ['Static content']))
+    const StaticFooter = defineComponent({ render: renderFn })
+
+    const instance = new StaticFooter()
+    instance.setExternalContent([])
+    instance.mount(container)
+    const callsAfterMount = renderFn.mock.calls.length
+
+    instance.setExternalContent([h('p', {}, ['ignored, no slot to put it in'])])
+
+    expect(renderFn.mock.calls.length).toBe(callsAfterMount)
+  })
+
+  it('does not throw when called before the component is mounted', () => {
+    const Card = defineComponent({ render() { return h('div', {}, [hSlot()]) } })
+    const instance = new Card()
+
+    expect(() => instance.setExternalContent([h('p')])).not.toThrow()
+  })
 })
 
 // ---------------------------------------------------------------------------

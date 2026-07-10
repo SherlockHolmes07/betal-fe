@@ -2,12 +2,12 @@ import equal from 'fast-deep-equal';
 import { destroyDOM } from "./destroy-dom.js";
 import { mountDOM } from "./mount-dom.js";
 import { patchDOM } from "./patch-dom.js";
-import { DOM_TYPES, didCreateSlot, resetDidCreateSlot } from "./h.js";
+import { DOM_TYPES } from "./h.js";
 import { extractChildNodes } from "./vdom-utils.js";
 import { hasOwnProperty } from './utils/objects.js';
 import { Dispatcher } from './dispatcher.js';
 import { enqueueJob } from './scheduler.js';
-import { fillSlots } from './slots.js'
+import { fillSlots, containsSlot } from './slots.js'
 import { EMPTY_FUNCTION } from './constants.js';
 
 export function defineComponent({ render, state, onMounted = EMPTY_FUNCTION, onUnmounted = EMPTY_FUNCTION, onPropsChange = EMPTY_FUNCTION, onStateChange = EMPTY_FUNCTION, ...methods }) {
@@ -22,6 +22,7 @@ export function defineComponent({ render, state, onMounted = EMPTY_FUNCTION, onU
     #subscriptions = [];
     #children = [];
     #appContext = null;
+    #hasSlot = false;
 
     /**
      * Creates a component instance with the given props, event handlers
@@ -45,9 +46,11 @@ export function defineComponent({ render, state, onMounted = EMPTY_FUNCTION, onU
       // instance, so it can read this.state/this.props and call public
       // methods. If it used hSlot(), project this.#children into the slot(s).
       const vdom = render.call(this);
-      if (didCreateSlot()) {
+      // Captured here, before fillSlots below replaces every SLOT node with
+      // a FRAGMENT in place.
+      this.#hasSlot = containsSlot(vdom);
+      if (this.#hasSlot) {
         fillSlots(vdom, this.#children);
-        resetDidCreateSlot();
       }
 
       return vdom;
@@ -132,10 +135,16 @@ export function defineComponent({ render, state, onMounted = EMPTY_FUNCTION, onU
     }
 
     /**
-     * Sets the child vdom nodes used to fill this component's slot(s).
+     * Sets the child vdom nodes used to fill this component's slot(s). If
+     * the component is already mounted and actually has a slot to fill,
+     * re-renders right away.
      */
     setExternalContent(children) {
       this.#children = children;
+
+      if (this.#isMounted && this.#hasSlot) {
+        this.#patch();
+      }
     }
 
     get appContext() {

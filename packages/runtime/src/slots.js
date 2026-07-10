@@ -2,39 +2,72 @@ import { DOM_TYPES, hFragment } from "./h.js";
 import { traverseDFS } from "./traverse-dom.js";
 
 /**
+ * Whether `vdom` contains a slot this component needs to fill — either
+ * `vdom` itself, or one reachable through its elements/fragments.
+ * @param {Object} vdom - The vdom node to check (and recurse into).
+ * @returns {boolean} True if a slot belonging to this component exists anywhere in `vdom`.
+ */
+export function containsSlot(vdom) {
+  if (vdom.type === DOM_TYPES.SLOT) return true;
+  if (vdom.type === DOM_TYPES.COMPONENT) return false;
+
+  return (vdom.children ?? []).some(containsSlot);
+}
+
+/**
  * Walks a just-rendered vdom tree and replaces every `SLOT` node in it with
- * `externalContent` — the children the parent passed to this component —
- * falling back to the slot's own default content when the parent passed
- * none. Called once per render, right after the user's `render()` returns
- * (see component.js), so slot content stays in sync as props change.
- *
- * There's only ever one, unnamed, default slot: every `hSlot()` in a single
- * render receives this same `externalContent` array, and a parent's
- * children replace the slot's default wholesale, never merged with it.
+ * `externalContent` — the children the parent passed to this component.
  *
  * @param {Object} vdom - The vdom tree to fill slots in, mutated in place.
- * @param {Array} [externalContent=[]] - The children this component was given by its parent.
+ * @param {Array|Object.<string, Array>} [externalContent=[]] - The children this component was given by its parent.
  * @returns {void}
  */
 export function fillSlots(vdom, externalContent = []) {
+  const externalContentByName = normalizeExternalContent(externalContent);
+  const filledNames = new Set();
+
   function processNode(node, parent, index) {
-    insertViewInSlot(node, parent, index, externalContent);
+    insertViewInSlot(node, parent, index, externalContentByName, filledNames);
   }
 
   traverseDFS(vdom, processNode, shouldSkipBranch);
+  warnAboutUnknownSlotNames(externalContentByName, filledNames);
 }
 
-function insertViewInSlot(node, parent, index, externalContent) {
+function normalizeExternalContent(externalContent) {
+  return Array.isArray(externalContent) ? { default: externalContent } : externalContent;
+}
+
+function insertViewInSlot(node, parent, index, externalContentByName, filledNames) {
   if (node.type !== DOM_TYPES.SLOT) return;
 
+  filledNames.add(node.name);
+  // If the parent passed content for this slot, use it; otherwise,
+  // use the slot's default content (if any).
+  // If neither exists, remove the slot node entirely.
+  const externalViews = externalContentByName[node.name] ?? [];
   const defaultContent = node.children;
-  const views = externalContent.length > 0 ? externalContent : defaultContent;
+  const views = externalViews.length > 0 ? externalViews : defaultContent;
 
   const hasContent = views.length > 0;
   if (hasContent) {
     parent.children.splice(index, 1, hFragment(views));
   } else {
     parent.children.splice(index, 1);
+  }
+}
+
+// Catches a typo'd slot name: content the parent clearly meant for a named
+// slot that no hSlot() in this render ever declared, silently dropped
+// otherwise.
+function warnAboutUnknownSlotNames(externalContentByName, filledNames) {
+  for (const [name, content] of Object.entries(externalContentByName)) {
+    // An empty array means the parent supplied nothing for this name — most
+    // often just the synthetic 'default' key from normalizing `[]`/no
+    // external content at all, not an actual mismatched slot name.
+    if (content.length > 0 && !filledNames.has(name)) {
+      console.warn(`[Slots] No slot named "${name}" was found to fill`);
+    }
   }
 }
 
