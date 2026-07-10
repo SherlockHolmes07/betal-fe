@@ -18,7 +18,7 @@ export const RouterLink = defineComponent({
     return h(
       "a",
       {
-        href: `#${to}`,
+        href: this.appContext.router.linkHref(to),
         ...rest,
         on: {
           // Take over normal link navigation and route through the SPA

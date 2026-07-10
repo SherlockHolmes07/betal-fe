@@ -37,6 +37,16 @@ describe('hashHistoryStrategy', () => {
     })
   })
 
+  describe('replacePath', () => {
+    it('replaces the current entry with a "#"-prefixed path', () => {
+      const replaceState = vi.spyOn(window.history, 'replaceState')
+      hashHistoryStrategy.replacePath('/about')
+
+      expect(replaceState).toHaveBeenCalledWith({}, '', '#/about')
+      replaceState.mockRestore()
+    })
+  })
+
   describe('normalizeInitialUrl', () => {
     it('sets the hash to "#/" when it is empty', () => {
       window.history.replaceState({}, '', location.pathname) // clear hash
@@ -101,6 +111,16 @@ describe('browserHistoryStrategy', () => {
 
       expect(pushState).toHaveBeenCalledWith({}, '', '/about')
       pushState.mockRestore()
+    })
+  })
+
+  describe('replacePath', () => {
+    it('replaces the current entry with the bare path', () => {
+      const replaceState = vi.spyOn(window.history, 'replaceState')
+      browserHistoryStrategy.replacePath('/about')
+
+      expect(replaceState).toHaveBeenCalledWith({}, '', '/about')
+      replaceState.mockRestore()
     })
   })
 
