@@ -361,6 +361,41 @@ describe('slot support', () => {
     expect(container.querySelector('main #body')).not.toBeNull()
     expect(container.querySelector('footer #footer')).not.toBeNull()
   })
+
+  it('warns through the real component lifecycle when the parent targets a slot name that does not exist', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    const Card = defineComponent({
+      render() {
+        return h('div', {}, [hSlot('header')])
+      },
+    })
+
+    const CardInstance = new Card()
+    CardInstance.setExternalContent({ haeder: [h('h2', {}, ['typo'])] }) // typo'd slot name
+    CardInstance.mount(container)
+
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('haeder'))
+    warn.mockRestore()
+  })
+
+  it('fills two slots that share the same name with the same content', () => {
+    const Card = defineComponent({
+      render() {
+        return h('div', {}, [
+          h('div', { class: 'a' }, [hSlot('shared')]),
+          h('div', { class: 'b' }, [hSlot('shared')]),
+        ])
+      },
+    })
+
+    const CardInstance = new Card()
+    CardInstance.setExternalContent({ shared: [h('span', {}, ['dup'])] })
+    CardInstance.mount(container)
+
+    expect(container.querySelector('.a span').textContent).toBe('dup')
+    expect(container.querySelector('.b span').textContent).toBe('dup')
+  })
 })
 
 // ---------------------------------------------------------------------------

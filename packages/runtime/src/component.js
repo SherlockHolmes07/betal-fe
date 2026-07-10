@@ -132,14 +132,12 @@ export function defineComponent({ render, state, onMounted = EMPTY_FUNCTION, onU
 
     /**
      * Sets the child vdom nodes used to fill this component's slot(s). If
-     * the component is already mounted and the content actually changed,
-     * re-renders right away.
+     * the component is already mounted, re-renders right away.
      */
     setExternalContent(children) {
-      const hasChanged = !equal(this.#children, children);
       this.#children = children;
 
-      if (hasChanged && this.#isMounted) {
+      if (this.#isMounted) {
         this.#patch();
       }
     }
