@@ -436,6 +436,25 @@ describe('setExternalContent()', () => {
     expect(renderFn.mock.calls.length).toBe(callsAfterMount + 1)
   })
 
+  it('does not re-render a component that never uses hSlot() at all', () => {
+    // setExternalContent() is called on every patch of every component,
+    // slotted or not (see patchComponent in patch-dom.js) — a component
+    // that never renders a slot has nowhere for this content to go, so
+    // patching it here would be a pure, pointless re-render on every single
+    // parent update, forever. This is what #hasSlot guards against.
+    const renderFn = vi.fn(() => h('footer', {}, ['Static content']))
+    const StaticFooter = defineComponent({ render: renderFn })
+
+    const instance = new StaticFooter()
+    instance.setExternalContent([])
+    instance.mount(container)
+    const callsAfterMount = renderFn.mock.calls.length
+
+    instance.setExternalContent([h('p', {}, ['ignored, no slot to put it in'])])
+
+    expect(renderFn.mock.calls.length).toBe(callsAfterMount)
+  })
+
   it('does not throw when called before the component is mounted', () => {
     const Card = defineComponent({ render() { return h('div', {}, [hSlot()]) } })
     const instance = new Card()

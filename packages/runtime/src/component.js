@@ -22,6 +22,7 @@ export function defineComponent({ render, state, onMounted = EMPTY_FUNCTION, onU
     #subscriptions = [];
     #children = [];
     #appContext = null;
+    #hasSlot = false;
 
     /**
      * Creates a component instance with the given props, event handlers
@@ -45,7 +46,10 @@ export function defineComponent({ render, state, onMounted = EMPTY_FUNCTION, onU
       // instance, so it can read this.state/this.props and call public
       // methods. If it used hSlot(), project this.#children into the slot(s).
       const vdom = render.call(this);
-      if (containsSlot(vdom)) {
+      // Captured here, before fillSlots below replaces every SLOT node with
+      // a FRAGMENT in place.
+      this.#hasSlot = containsSlot(vdom);
+      if (this.#hasSlot) {
         fillSlots(vdom, this.#children);
       }
 
@@ -132,12 +136,13 @@ export function defineComponent({ render, state, onMounted = EMPTY_FUNCTION, onU
 
     /**
      * Sets the child vdom nodes used to fill this component's slot(s). If
-     * the component is already mounted, re-renders right away.
+     * the component is already mounted and actually has a slot to fill,
+     * re-renders right away.
      */
     setExternalContent(children) {
       this.#children = children;
 
-      if (this.#isMounted) {
+      if (this.#isMounted && this.#hasSlot) {
         this.#patch();
       }
     }
