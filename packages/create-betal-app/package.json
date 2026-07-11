@@ -1,0 +1,46 @@
+{
+  "name": "create-betal-app",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Scaffold a new betal-fe project — choose a demo, a router (Hash or Browser), and get the right deployment config already in place.",
+  "bin": {
+    "create-betal-app": "./bin/index.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "templates"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "vitest",
+    "test:run": "vitest --run",
+    "lint": "eslint src bin",
+    "lint:fix": "eslint src bin --fix"
+  },
+  "keywords": [
+    "betal-fe",
+    "scaffolding",
+    "cli",
+    "create"
+  ],
+  "author": "Dhairya Upadhyay",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SherlockHolmes07/betal-fe.git",
+    "directory": "packages/create-betal-app"
+  },
+  "homepage": "https://betalfe.com/",
+  "dependencies": {
+    "@clack/prompts": "^1.7.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.38.0",
+    "eslint": "^9.38.0",
+    "globals": "^16.4.0",
+    "vitest": "^3.2.4"
+  }
+}
