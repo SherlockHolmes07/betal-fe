@@ -42,22 +42,16 @@ export const RouterOutlet = defineComponent({
   state() {
     return {
       matchedRoute: null,
-      subscription: null,
     };
   },
 
   onMounted() {
-    // Subscribe to the router so we can update our state whenever the route changes.
-    const subscription = this.appContext.router.subscribe(({ to }) => {
-      this.handleRouteChange(to);
-    });
-
-    this.updateState({ subscription });
+    this.routeChangeHandler = ({ to }) => this.handleRouteChange(to);
+    this.appContext.router.subscribe(this.routeChangeHandler);
   },
 
   onUnmounted() {
-    const { subscription } = this.state;
-    this.appContext.router.unsubscribe(subscription);
+    this.appContext.router.unsubscribe(this.routeChangeHandler);
   },
 
   handleRouteChange(matchedRoute) {

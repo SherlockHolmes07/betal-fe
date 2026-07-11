@@ -219,4 +219,58 @@ describe('RouterOutlet', () => {
 
     router.destroy()
   })
+
+  // Regression: onUnmounted used to pass the return value of router.subscribe()
+  // (which is `undefined`) to unsubscribe, so the handler was never actually
+  // removed. Asserting that unsubscribe was *called* (the test above) passed
+  // anyway — unsubscribe(undefined) is still a call. These two check the real
+  // effect instead: that a navigation after unmount no longer reaches the
+  // dead outlet.
+  it('actually stops receiving route events after unmount (not just calls unsubscribe)', async () => {
+    const PageA = defineComponent({ render() { return h('div', { id: 'page-a' }) } })
+    const PageB = defineComponent({ render() { return h('div', { id: 'page-b' }) } })
+    const router = new HashRouter([
+      { path: '/a', component: PageA },
+      { path: '/b', component: PageB },
+    ])
+    await router.init()
+
+    const vnode = h(RouterOutlet, {})
+    mountDOM(vnode, container, null, { appContext: makeAppContext(router) })
+    await nextTick()
+
+    const handleRouteChange = vi.spyOn(vnode.component, 'handleRouteChange')
+    destroyDOM(vnode)
+    await nextTick()
+
+    await router.navigateTo('/b')
+    await nextTick()
+
+    expect(handleRouteChange).not.toHaveBeenCalled()
+
+    router.destroy()
+  })
+
+  it('does not throw on navigation after the outlet has unmounted', async () => {
+    const PageA = defineComponent({ render() { return h('div', { id: 'page-a' }) } })
+    const PageB = defineComponent({ render() { return h('div', { id: 'page-b' }) } })
+    const router = new HashRouter([
+      { path: '/a', component: PageA },
+      { path: '/b', component: PageB },
+    ])
+    await router.init()
+
+    const vnode = h(RouterOutlet, {})
+    mountDOM(vnode, container, null, { appContext: makeAppContext(router) })
+    await nextTick()
+
+    destroyDOM(vnode)
+    await nextTick()
+
+    // Before the fix, the leaked handler would fire updateState() on the
+    // unmounted outlet, and #patch() throws "Component is not mounted".
+    await expect(router.navigateTo('/b')).resolves.toBeUndefined()
+
+    router.destroy()
+  })
 })
