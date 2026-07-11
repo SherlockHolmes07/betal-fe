@@ -62,7 +62,7 @@ All development happens off `main`. Never commit directly to `main` — every ch
 **Rules:**
 - Use lowercase and hyphens only — no spaces or underscores.
 - Keep the description short (3–5 words).
-- The `<scope>` segment matches the affected module: `router`, `component`, `patch`, `slots`, `scheduler`, `attrs`, `events`, `build`, etc.
+- The `<scope>` segment matches the affected module: `router`, `component`, `patch`, `slots`, `scheduler`, `attrs`, `events`, `build`, `cli`, etc.
 
 ### Typical Workflow
 
@@ -116,31 +116,37 @@ git push origin v4.5.0
 ### Project Structure
 
 ```
-packages/runtime/src/
-├── app.js                  # Application factory
-├── component.js            # Component system
-├── h.js                    # Virtual DOM creation (createElement)
-├── mount-dom.js            # DOM mounting logic
-├── patch-dom.js            # DOM diffing and patching
-├── destroy-dom.js          # DOM cleanup
-├── router.js               # Routing system
-├── router-components.js    # Router view/link components
-├── route-matchers.js       # Route matching logic
-├── slots.js                # Slot system
-├── scheduler.js            # Update scheduler
-├── dispatcher.js           # Event dispatcher
-├── events.js               # Event handling
-├── attributes.js           # Attribute manipulation
-├── nodes-equal.js          # VNode comparison
-├── traverse-dom.js         # DOM traversal utilities
-├── index.js                # Main exports
-├── __tests__/              # Test files
-└── utils/                  # Utility functions
-    ├── arrays.js
-    ├── assert.js
-    ├── objects.js
-    ├── props.js
-    └── strings.js
+packages/
+├── runtime/src/
+│   ├── app.js                  # Application factory
+│   ├── component.js            # Component system
+│   ├── h.js                    # Virtual DOM creation (createElement)
+│   ├── mount-dom.js            # DOM mounting logic
+│   ├── patch-dom.js            # DOM diffing and patching
+│   ├── destroy-dom.js          # DOM cleanup
+│   ├── router.js               # Routing system (HashRouter, BrowserRouter)
+│   ├── history-strategies.js   # Pluggable hash/browser URL strategies used by router.js
+│   ├── router-components.js    # Router view/link components
+│   ├── route-matchers.js       # Route matching logic
+│   ├── slots.js                # Slot system
+│   ├── scheduler.js            # Update scheduler
+│   ├── dispatcher.js           # Event dispatcher
+│   ├── events.js               # Event handling
+│   ├── attributes.js           # Attribute manipulation
+│   ├── nodes-equal.js          # VNode comparison
+│   ├── traverse-dom.js         # DOM traversal utilities
+│   ├── index.js                # Main exports
+│   ├── __tests__/              # Test files
+│   └── utils/                  # Utility functions
+│       ├── arrays.js
+│       ├── assert.js
+│       ├── objects.js
+│       ├── props.js
+│       └── strings.js
+└── create-betal-app/       # `npm create betal-app` scaffolding CLI
+    ├── bin/                 # CLI entry point
+    ├── src/                 # parse-args, prompts, version resolution, scaffold engine
+    └── templates/           # base + demo/router/deploy template layers
 ```
 
 ### Running Tests

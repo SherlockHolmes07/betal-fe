@@ -6,7 +6,8 @@
     "serve:examples": "npx http-server . -o ./examples/"
   },
   "workspaces": [
-    "packages/runtime"
+    "packages/runtime",
+    "packages/create-betal-app"
   ],
   "keywords": [],
   "author": "Dhairya Upadhyay",

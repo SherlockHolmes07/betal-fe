@@ -1,0 +1,6 @@
+# Paste this inside your server { ... } block. It makes nginx serve
+# index.html for any path it doesn't have a real file for, so BrowserRouter
+# gets a chance to handle the route client-side instead of nginx 404ing.
+location / {
+    try_files $uri $uri/ /index.html;
+}

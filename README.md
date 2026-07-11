@@ -7,7 +7,34 @@ A lightweight, modern frontend framework implementing Virtual DOM, reactive comp
 
 **🌐 [Live Documentation](https://betalfe.com/#/docs)**
 
+## 🏗️ Create a New Project
+
+The fastest way to start — scaffold a full project in one command:
+
+```bash
+npm create betal-app@latest
+```
+
+This walks you through a few choices — project name, a starter demo (`counter` or `todo`), a router (`none`, `hash`, or `browser`), and, if you pick `browser`, a deployment target — and generates a ready-to-run Vite + betal-fe project. Non-interactive usage:
+
+```bash
+npm create betal-app@latest my-app -- --template todo --router browser --deploy vercel
+```
+
+| Flag | Values | Notes |
+|---|---|---|
+| `--template` | `counter`, `todo` | Starter demo app |
+| `--router` | `none`, `hash`, `browser` | Routing setup |
+| `--deploy` | `vercel`, `netlify`, `nginx`, `manual` | Only asked when `--router browser` |
+| `--force` | *(flag)* | Scaffold into a non-empty directory anyway |
+
+### Deployment note (BrowserRouter)
+
+Real-path routing requires the host to serve `index.html` for any path it doesn't otherwise recognize (a refresh on `/about` is a real request to the server, not just client-side JS). Picking `--deploy vercel`/`netlify`/`nginx` generates that host's rewrite config for you (`vercel.json`, `public/_redirects`, or an nginx `location` snippet, respectively); pick `manual` and `DEPLOYING.md` in the generated project explains how to set it up yourself. `HashRouter` needs none of this, since the fragment never reaches the server at all.
+
 ## 📦 Installation
+
+Already have a project and just want the library?
 
 ```bash
 npm install betal-fe
@@ -20,9 +47,10 @@ npm install betal-fe
 - **Reactive State** - Automatic re-rendering on state changes
 - **Lifecycle Hooks** - `onMounted`, `onUnmounted`, `onPropsChange`, `onStateChange`
 - **Slots** - Content projection for flexible component composition (Vue-style)
-- **Hash Router** - Built-in SPA routing with route guards, params, and scroll behavior
+- **Routing** - `HashRouter` and `BrowserRouter`, with route guards, params, redirects, and scroll behavior
 - **Event System** - Parent-child communication via emit/subscribe
 - **Scheduler** - Async lifecycle execution with microtask batching
+- **Project Scaffolding** - `npm create betal-app` generates a ready-to-run project with your choice of demo, router, and deployment config
 
 ## 🚀 Quick Start
 
@@ -63,10 +91,12 @@ createBetalApp(Counter).mount(document.getElementById('app'));
 
 ### With Routing
 
-```javascript
-import { createBetalApp, HashRouter, RouterLink, RouterOutlet, hFragment, h } from 'betal-fe';
+`HashRouter` (`#/path`) works on any static host with no server configuration. `BrowserRouter` (`/path`, no `#`) gives clean URLs but needs the server to rewrite unmatched paths to `index.html` in production — see [Deployment note](#deployment-note-browserrouter) below. Both share the same API.
 
-const router = new HashRouter([
+```javascript
+import { createBetalApp, HashRouter, BrowserRouter, RouterLink, RouterOutlet, hFragment, h } from 'betal-fe';
+
+const router = new HashRouter([ // or: new BrowserRouter([...])
   { path: '/', component: HomePage },
   { path: '/about', component: AboutPage },
   { path: '/user/:id', component: UserPage },
@@ -94,8 +124,9 @@ createBetalApp(App, {}, { router }).mount(document.getElementById('app'));
 ```
 betal-fe/
 ├── packages/
-│   └── runtime/          # Core framework code (Virtual DOM, components, router, slots)
-└── examples/             # Example applications (counter, todo app)
+│   ├── runtime/           # Core framework code (Virtual DOM, components, router, slots)
+│   └── create-betal-app/  # `npm create betal-app` scaffolding CLI
+└── examples/              # Example applications (counter, todo app)
 ```
 
 ## 🎯 Core Concepts
@@ -172,6 +203,13 @@ this.appContext.router.navigateTo('/user/123?tab=profile');
 
 ```bash
 cd packages/runtime
+npm test
+```
+
+Or for the scaffolding CLI:
+
+```bash
+cd packages/create-betal-app
 npm test
 ```
 
