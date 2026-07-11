@@ -4,7 +4,19 @@ A lightweight, modern frontend framework implementing Virtual DOM, reactive comp
 
 **🌐 [Documentation](https://betalfe.com/)**
 
+## 🏗️ Create a New Project
+
+The fastest way to start: scaffold a full project — a starter demo, your choice of router, and any deployment config it needs — in one command.
+
+```bash
+npm create betal-app@latest
+```
+
+See [create-betal-app](https://www.npmjs.com/package/create-betal-app) for the full list of options.
+
 ## 📦 Installation
+
+Already have a project and just want the library?
 
 ```bash
 npm install betal-fe
@@ -17,7 +29,7 @@ npm install betal-fe
 - **Reactive State** - Automatic re-rendering on state changes
 - **Lifecycle Hooks** - `onMounted`, `onUnmounted`, `onPropsChange`, `onStateChange`
 - **Slots** - Content projection for flexible component composition (Vue-style)
-- **Hash Router** - Built-in SPA routing with route guards, params, and scroll behavior
+- **Routing** - `HashRouter` and `BrowserRouter`, with route guards, params, redirects, and scroll behavior
 - **Event System** - Parent-child communication via emit/subscribe
 - **Scheduler** - Async lifecycle execution with microtask batching
 
@@ -48,8 +60,10 @@ createBetalApp(Counter).mount(document.getElementById('app'));
 
 ### With Routing
 
+`HashRouter` (`#/path`) works on any static host with no server configuration. `BrowserRouter` (`/path`, no `#`) gives clean URLs but needs the host to rewrite unmatched paths to `index.html` in production — see [Deployment](#deployment-browserrouter) below. Both share the same API; swap one for the other with no other code changes.
+
 ```javascript
-import { createBetalApp, defineComponent, HashRouter, RouterLink, RouterOutlet, hFragment, h } from 'betal-fe';
+import { createBetalApp, defineComponent, HashRouter, BrowserRouter, RouterLink, RouterOutlet, hFragment, h } from 'betal-fe';
 
 const HomePage = defineComponent({
   render() {
@@ -63,7 +77,7 @@ const AboutPage = defineComponent({
   }
 });
 
-const router = new HashRouter([
+const router = new HashRouter([ // or: new BrowserRouter([...])
   { path: '/', component: HomePage },
   { path: '/about', component: AboutPage },
   { path: '/user/:id', component: UserPage },
@@ -214,12 +228,12 @@ this.emit('itemAdded', { id: 123, name: 'New Item' });
 
 ### Router
 
-#### `new HashRouter(routes, options)`
+#### `new HashRouter(routes, options)` / `new BrowserRouter(routes, options)`
 
-Creates a hash-based router.
+Both take the same route definitions and options — `HashRouter` reads/writes the URL fragment (`#/path`); `BrowserRouter` uses the real History API (`/path`). See [Deployment](#deployment-browserrouter) below before shipping `BrowserRouter` to production.
 
 ```javascript
-const router = new HashRouter([
+const router = new HashRouter([ // or: new BrowserRouter([...])
   { path: '/', component: HomePage },
   { path: '/user/:id', component: UserPage },
   { 
@@ -229,11 +243,16 @@ const router = new HashRouter([
       // Route guard - return false to cancel, string to redirect
       return isLoggedIn() ? true : '/login';
     }
-  }
+  },
+  { path: '/old-path', redirect: '/new-path' },
 ], {
   scrollBehavior: 'top'  // 'top' (default), false, or custom function
 });
 ```
+
+#### Deployment (BrowserRouter)
+
+`BrowserRouter` needs the host to serve `index.html` for any path it doesn't otherwise recognize — a refresh on `/about` is a real request to the server, not something client-side JS can intercept. [`npm create betal-app`](https://www.npmjs.com/package/create-betal-app) generates the right rewrite config automatically for Vercel, Netlify, or nginx. Setting it up by hand for another host is a one-line rewrite rule: send every unmatched request to `/index.html`. `HashRouter` needs none of this, since the `#` fragment is never sent to the server at all.
 
 #### Scroll Behavior Options
 
