@@ -94,7 +94,7 @@ createBetalApp(Counter).mount(document.getElementById('app'));
 `HashRouter` (`#/path`) works on any static host with no server configuration. `BrowserRouter` (`/path`, no `#`) gives clean URLs but needs the server to rewrite unmatched paths to `index.html` in production — see [Deployment note](#deployment-note-browserrouter) below. Both share the same API.
 
 ```javascript
-import { createBetalApp, HashRouter, BrowserRouter, RouterLink, RouterOutlet, hFragment, h } from 'betal-fe';
+import { createBetalApp, defineComponent, HashRouter, BrowserRouter, RouterLink, RouterOutlet, hFragment, h } from 'betal-fe';
 
 const router = new HashRouter([ // or: new BrowserRouter([...])
   { path: '/', component: HomePage },
@@ -126,7 +126,7 @@ betal-fe/
 ├── packages/
 │   ├── runtime/           # Core framework code (Virtual DOM, components, router, slots)
 │   └── create-betal-app/  # `npm create betal-app` scaffolding CLI
-└── examples/              # Example applications (counter, todo app)
+└── examples/              # Example applications (todo app)
 ```
 
 ## 🎯 Core Concepts

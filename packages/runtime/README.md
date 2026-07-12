@@ -128,15 +128,15 @@ const MyComponent = defineComponent({
   },
 
   onUnmounted() {
-    // Called before component is unmounted
+    // Async cleanup hook — called after the component's DOM is already removed
   },
 
   onPropsChange(newProps, oldProps) {
     // Called when props change
   },
 
-  onStateChange(newState, oldState) {
-    // Called after state changes
+  onStateChange() {
+    // Called after state changes (receives no arguments — read this.state)
   },
 
   render() {
@@ -288,9 +288,10 @@ this.appContext.router.navigateTo('/path')
 ```javascript
 h(RouterLink, { to: '/about' }, ['About'])
 
-// With anchor fragments
+// With anchor fragments — "to" must always start with "/", so an anchor on
+// the root page is "/#features", never a bare "#features"
 h(RouterLink, { to: '/about#team' }, ['Meet the Team'])
-h(RouterLink, { to: '#features' }, ['Jump to Features'])
+h(RouterLink, { to: '/#features' }, ['Jump to Features'])
 
 // With custom classes and attributes
 h(RouterLink, { to: '/about', class: 'nav-link active' }, ['About'])
@@ -304,20 +305,26 @@ Renders the current route component.
 h(RouterOutlet)
 ```
 
-### Event Dispatcher
+### Child-to-Parent Events
 
-#### Subscribe to Events
+There's no global event bus — `appContext` only exposes `router`. Communication between components is parent/child: a child emits, and the parent listens via the `on` prop where it renders that child.
 
-```javascript
-this.appContext.dispatcher.subscribe('eventName', (payload) => {
-  console.log('Event received:', payload);
-});
-```
-
-#### Dispatch Events
+#### Emit from the Child
 
 ```javascript
 this.emit('eventName', { data: 'value' });
+```
+
+#### Listen from the Parent
+
+```javascript
+h(ChildComponent, {
+  on: {
+    eventName: (payload) => {
+      console.log('Event received:', payload);
+    }
+  }
+})
 ```
 
 ## 🎯 Component Lifecycle
@@ -329,8 +336,8 @@ this.emit('eventName', { data: 'value' });
 5. **onMounted()** → Component is now in the DOM
 6. **Props/State Change** → Re-render triggered
 7. **onPropsChange() / onStateChange()** → After update
-8. **onUnmounted()** → Before removal from DOM
-9. **Unmount** → DOM cleanup
+8. **Unmount** → DOM removed
+9. **onUnmounted()** → Queued asynchronously, runs after removal — for cleanup like clearing timers or subscriptions, not for touching the component's own (already-removed) DOM
 
 ## 🔧 Props & Attributes
 
@@ -357,9 +364,11 @@ h("div", {
 
 ### Style Binding
 
+`style` must be an object, not a CSS string — each entry is applied as `el.style[prop] = value`:
+
 ```javascript
 h("div", {
-  style: "color: red; font-size: 16px;"
+  style: { color: "red", fontSize: "16px" }
 }, [/* children */]);
 ```
 
